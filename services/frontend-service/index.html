@@ -455,14 +455,15 @@ function updateRate() {
 // ── FIX 1: loadOverview now fetches transfers too ─────────────────────────
 async function loadOverview() {
   try {
-    const [wallets,conversions,withdrawals]=await Promise.all([
+    const [wallets,conversions,withdrawals,transfers]=await Promise.all([
       api('GET','/api/v1/wallet/balances'),
       api('GET','/api/v1/conversions'),
       api('GET','/api/v1/withdrawals'),
+      api('GET','/api/v1/wallet/transfers'),
     ]);
     allConversions=Array.isArray(conversions)?conversions:[];
     allWithdrawals=Array.isArray(withdrawals)?withdrawals:[];
-    allTransfers=[];
+    allTransfers=Array.isArray(transfers)?transfers:[];
     const arr=Array.isArray(wallets)?wallets:[];
     document.getElementById('active-wallets').textContent=arr.length;
     document.getElementById('total-conversions').textContent=allConversions.length;
@@ -474,7 +475,6 @@ async function loadOverview() {
       else if (w.currency==='GBP') total+=parseFloat(w.balance||0)*(ratesCache['GBP/USD']||1.27);
     });
     document.getElementById('total-balance').textContent='$'+total.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
-    // FIX 2: include transfers in recent activity, sorted by date
     const recent=[
       ...allConversions.slice(-4).map(c=>({...c,_type:'conversion'})),
       ...allWithdrawals.slice(-4).map(w=>({...w,_type:'withdrawal'})),
@@ -624,13 +624,14 @@ async function loadHistory() {
   const c=document.getElementById('history-table-container');
   c.innerHTML='<div class="loading"><div class="spinner"></div>Loading...</div>';
   try {
-    const [conversions,withdrawals]=await Promise.all([
+    const [conversions,withdrawals,transfers]=await Promise.all([
       api('GET','/api/v1/conversions'),
       api('GET','/api/v1/withdrawals'),
+      api('GET','/api/v1/wallet/transfers'),
     ]);
     allConversions=Array.isArray(conversions)?conversions:[];
     allWithdrawals=Array.isArray(withdrawals)?withdrawals:[];
-    allTransfers=[];
+    allTransfers=Array.isArray(transfers)?transfers:[];
     renderHistoryTable();
   } catch(e) { c.innerHTML=`<div class="empty-state">${e.message}</div>`; }
 }
@@ -646,11 +647,11 @@ function renderHistoryTable() {
   const c=document.getElementById('history-table-container');
   let rows=[];
   if (historyFilter==='all'||historyFilter==='conversions') rows.push(...allConversions.map(x=>({...x,_type:'conversion'})));
-  if (historyFilter==='all'||historyFilter==='withdrawals') rows.push(...allWithdrawals.filter(x=>x.transfer_type!=='transfer').map(x=>({...x,_type:'withdrawal'})));
-  if (historyFilter==='all'||historyFilter==='transfers') rows.push(...allWithdrawals.filter(x=>x.transfer_type==='transfer').map(x=>({...x,_type:'withdrawal'})));
+  if (historyFilter==='all'||historyFilter==='withdrawals') rows.push(...allWithdrawals.map(x=>({...x,_type:'withdrawal'})));
+  if (historyFilter==='all'||historyFilter==='transfers') rows.push(...allTransfers.map(x=>({...x,_type:'transfer'})));
   rows.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
   if (!rows.length) { c.innerHTML='<div class="empty-state">No transactions found</div>'; return; }
-  c.innerHTML=`<table><thead><tr><th>Type</th><th>Details</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead><tbody>${rows.map(r=>r._type==='conversion'?convRow(r,true):wdRow(r,true)).join('')}</tbody></table>`;
+  c.innerHTML=`<table><thead><tr><th>Type</th><th>Details</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead><tbody>${rows.map(r=>r._type==='conversion'?convRow(r,true):r._type==='transfer'?transferRow(r,true):wdRow(r,true)).join('')}</tbody></table>`;
 }
 
 function convRow(c,showDate=false) {
