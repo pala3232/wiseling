@@ -44,14 +44,16 @@ async def clean_once():
 
     async with AsyncSessionLocal() as db:
         for item in pending:
-            created_epoch = item.get("ttl", 0) - 300
+            created_epoch = float(item.get("ttl", 0)) - 300  # cast to float
             if (now - created_epoch) < safe_age_seconds:
                 continue
 
             record_id = item["record_id"]
+            sk = item["sk"]
+
             result = await db.execute(select(Withdrawal).where(Withdrawal.id == record_id))
             if result.scalar_one_or_none():
-                mark_cleaned("withdrawal", record_id)
+                mark_cleaned("withdrawal", record_id, sk)
                 print(f"[cleaner] Cleaned withdrawal {record_id} from DynamoDB")
             else:
                 print(f"[cleaner] WARNING: withdrawal {record_id} in DynamoDB but not in RDS")

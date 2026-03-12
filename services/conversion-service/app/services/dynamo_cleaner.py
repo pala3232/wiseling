@@ -14,6 +14,7 @@ Flow:
 """
 import asyncio
 import json
+import time
 import boto3
 from sqlalchemy import select
 from app.core.config import settings
@@ -62,25 +63,25 @@ async def clean_once():
     if not pending:
         return
 
-    import time
     now = time.time()
 
     async with AsyncSessionLocal() as db:
         for item in pending:
-            created_epoch = item.get("ttl", 0) - 300  # TTL = created + 300s
+            created_epoch = float(item.get("ttl", 0)) - 300  # TTL = created + 300s, cast to float
             age_seconds = now - created_epoch
 
             if age_seconds < safe_age_seconds:
                 continue  # not old enough to be safe yet
 
             record_id = item["record_id"]
+            sk = item["sk"]
 
             # Verify record exists in RDS (confirms it replicated)
             result = await db.execute(
                 select(Conversion).where(Conversion.id == record_id)
             )
             if result.scalar_one_or_none():
-                mark_cleaned("conversion", record_id)
+                mark_cleaned("conversion", record_id, sk)
                 print(f"[cleaner] Cleaned conversion {record_id} from DynamoDB")
             else:
                 print(f"[cleaner] WARNING: conversion {record_id} in DynamoDB but not in RDS")
