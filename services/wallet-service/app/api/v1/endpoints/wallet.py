@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from app.schemas.wallet import WalletResponse, InitWalletsRequest
-from app.services.wallet import get_wallets, init_wallets
+from app.services.wallet import get_wallets, init_wallets, list_transfers
 from app.core.dependencies import get_current_user_id
 from app.core.config import settings
 
@@ -36,3 +36,7 @@ async def lookup_recipient(account_number: str, user_id: str = Depends(get_curre
 async def init(body: InitWalletsRequest, db: AsyncSession = Depends(get_db)):
     await init_wallets(db, body.user_id)
     return {"ok": True}
+
+@router.get("/api/v1/wallet/transfers")
+async def get_transfers(user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db)):
+    return await list_transfers(db, user_id)
