@@ -25,8 +25,6 @@ def get_dynamo():
     return boto3.resource(
         "dynamodb",
         region_name=os.getenv("AWS_REGION", "us-east-1"),
-        aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
-        aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
     )
 
 
@@ -37,30 +35,30 @@ def write_to_dynamo(service: str, record_id: str, payload: dict) -> bool:
     TTL ensures auto-cleanup even if the cleaner pod fails.
     """
     try:
+        created_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         table = get_dynamo().Table(DYNAMO_TABLE)
         table.put_item(Item={
             "pk": f"{service}#{record_id}",
+            "sk": created_at,
             "service": service,
             "record_id": record_id,
             "payload": json.dumps(payload),
             "status": "PENDING",
-            "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "created_at": created_at,
             "ttl": int(time.time()) + TTL_SECONDS,
         })
         return True
     except Exception as e:
-        # Non-fatal: RDS has the committed data.
-        # Alert ops — this record won't be in the DynamoDB safety net.
         print(f"[dynamo] WARNING: failed to write {service}#{record_id}: {e}")
         return False
 
 
-def mark_cleaned(service: str, record_id: str) -> None:
+def mark_cleaned(service: str, record_id: str, sk: str) -> None:
     """Mark a DynamoDB row as cleaned after RDS replication confirmed."""
     try:
         table = get_dynamo().Table(DYNAMO_TABLE)
         table.update_item(
-            Key={"pk": f"{service}#{record_id}"},
+            Key={"pk": f"{service}#{record_id}", "sk": sk},
             UpdateExpression="SET #s = :s",
             ExpressionAttributeNames={"#s": "status"},
             ExpressionAttributeValues={":s": "CLEANED"},

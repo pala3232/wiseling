@@ -16,7 +16,7 @@ spec:
       serviceAccountName: wiseling-sa
       containers:
       - name: withdrawal-dynamo-cleaner
-        image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/withdrawal-service:1.0.11
+        image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/withdrawal-service:1.0.12
         command: ["python", "-m", "app.services.dynamo_cleaner"]
         envFrom:
           - configMapRef:
