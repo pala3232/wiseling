@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wiseling-config
+  namespace: wiseling
+data:
+  AWS_REGION: ap-southeast-2
+  RATES_PROVIDER: static
+  DYNAMO_OUTBOX_TABLE: wiseling-outbox
+  WALLET_SERVICE_URL: http://wallet-service:8001
+  SQS_CONVERSIONS_QUEUE_URL: https://sqs.ap-southeast-2.amazonaws.com/359707702022/wiseling-conversions
+  SQS_WITHDRAWALS_QUEUE_URL: https://sqs.ap-southeast-2.amazonaws.com/359707702022/wiseling-withdrawals
+  DYNAMO_OUTBOX_TTL_SECONDS: "300"
+  RDS_REPLICA_IDENTIFIER: ""
+  AUTH_SERVICE_URL: http://auth-service:8000
+  WITHDRAWAL_SERVICE_URL: http://withdrawal-service:8003

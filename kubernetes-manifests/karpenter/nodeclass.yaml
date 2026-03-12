@@ -1,0 +1,20 @@
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  name: default
+spec:
+  role: "wiseling-eks-node-role"
+  subnetSelectorTerms:
+    - tags:
+        "karpenter.sh/discovery": "wiseling-eks-cluster"
+  securityGroupSelectorTerms:
+    - tags:
+        "karpenter.sh/discovery": "wiseling-eks-cluster"
+    - tags:
+        "aws:eks:cluster-name": "wiseling-eks-cluster"
+  amiSelectorTerms:
+    - alias: al2023@latest
+  metadataOptions:
+    httpEndpoint: enabled
+    httpTokens: required
+    httpPutResponseHopLimit: 2

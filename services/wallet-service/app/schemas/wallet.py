@@ -1,0 +1,26 @@
+from decimal import Decimal
+from pydantic import BaseModel
+
+
+class WalletResponse(BaseModel):
+    id: str
+    currency: str
+    balance: Decimal
+
+    class Config:
+        from_attributes = True
+
+
+class InitWalletsRequest(BaseModel):
+    user_id: str
+
+
+class LedgerEntryResponse(BaseModel):
+    id: str
+    currency: str
+    amount: Decimal
+    reason: str
+    reference_id: str
+
+    class Config:
+        from_attributes = True
