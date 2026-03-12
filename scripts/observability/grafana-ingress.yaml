@@ -4,11 +4,14 @@ metadata:
   name: grafana-ingress
   namespace: monitoring
   annotations:
-    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/group.order: "1"
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/group.name: wiseling
+    alb.ingress.kubernetes.io/healthcheck-path: /grafana/api/health
+    alb.ingress.kubernetes.io/success-codes: "200"
 spec:
+  ingressClassName: alb
   rules:
   - http:
       paths:
