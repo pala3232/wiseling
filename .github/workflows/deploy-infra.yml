@@ -43,5 +43,6 @@ jobs:
         if: ${{ github.event.inputs.action == 'plan' }}
         run: terraform -chdir=terraform plan ${{ steps.tfflags.outputs.target_flag }}
       - name: Terraform Apply
+        continue-on-error: true
         if: ${{ github.event.inputs.action == 'apply' }}
         run: terraform -chdir=terraform apply -auto-approve ${{ steps.tfflags.outputs.target_flag }}

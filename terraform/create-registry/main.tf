@@ -20,7 +20,8 @@ resource "aws_ecr_repository" "wiseling-ecr-repo" {
     "wallet-service",
     "conversion-service",
     "withdrawal-service",
-    "withdrawal-processor"
+    "withdrawal-processor",
+    "frontend"
   ])
   name                 = "${var.app_name}/${each.key}"
   image_tag_mutability = "IMMUTABLE"
