@@ -1,5 +1,6 @@
 resource "aws_secretsmanager_secret" "db_urls" {
   name = "wiseling/db-urls"
+  recovery_window_in_days = 0
 }
 
 resource "aws_secretsmanager_secret_version" "db_urls" {

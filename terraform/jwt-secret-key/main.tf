@@ -16,8 +16,10 @@ provider "aws" {
 
 resource "aws_secretsmanager_secret" "jwt-secret-key" {
   name        = "${var.app_name}-jwt-secret-key"
+  recovery_window_in_days = 0
   description = "JWT secret key for ${var.app_name}"
   tags = {
     "project" = var.app_name
   }
+  
 }
