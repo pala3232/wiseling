@@ -3,9 +3,6 @@ kind: Deployment
 metadata:
   name: conversion-dynamo-cleaner
   namespace: wiseling
-  matchLabels:
-    app: conversion-dynamo-cleaner
-    deployment: green
 spec:
   replicas: 1
   selector:

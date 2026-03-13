@@ -3,9 +3,6 @@ kind: Deployment
 metadata:
   name: wallet-consumer
   namespace: wiseling
-  matchLabels:
-    app: wallet-consumer
-    deployment: green
 spec:
   replicas: 1
   selector:

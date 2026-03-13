@@ -27,11 +27,13 @@ module "create_registry" {
 
 
 module "create_eks" {
-  source = "./create-eks"
-  vpc_id = module.main_vpc.vpc_id
+  source            = "./create-eks"
+  vpc_id            = module.main_vpc.vpc_id
   public_subnet_ids = module.main_vpc.all_public_subnet_ids
   eks_cluster_sg_id = module.main_vpc.eks_cluster_sg_id
+  eks_nodes_sg_id   = module.main_vpc.eks_nodes_sg_id 
 }
+
 
 module "iam_irsa" {
   source = "./iam/irsa"

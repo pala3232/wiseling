@@ -3,9 +3,6 @@ kind: Deployment
 metadata:
   name: withdrawal-dynamo-cleaner
   namespace: wiseling
-  matchLabels:
-    app: withdrawal-dynamo-cleaner
-    deployment: green
 spec:
   replicas: 1
   selector:

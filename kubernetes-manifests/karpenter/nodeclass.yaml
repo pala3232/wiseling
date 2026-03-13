@@ -10,8 +10,6 @@ spec:
   securityGroupSelectorTerms:
     - tags:
         "karpenter.sh/discovery": "wiseling-eks-cluster"
-    - tags:
-        "aws:eks:cluster-name": "wiseling-eks-cluster"
   amiSelectorTerms:
     - alias: al2023@latest
   metadataOptions:

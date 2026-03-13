@@ -1,4 +1,3 @@
-
 #!/bin/bash
 set -euo pipefail
 
@@ -16,6 +15,13 @@ trap 'error_handler $LINENO' ERR
 
 CLUSTER_NAME="wiseling-eks-cluster"
 REGION="ap-southeast-2"
+
+
+log "Generating and uploading JWT secret..."
+aws secretsmanager put-secret-value \
+  --secret-id wiseling-jwt-secret-key \
+  --secret-string "$(openssl rand -hex 32)" \
+  --region "$REGION"
 
 
 log "Configuring kubectl..."
@@ -50,7 +56,6 @@ helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-contro
 
 log "Waiting for LB controller to be ready..."
 kubectl rollout status deployment/aws-load-balancer-controller -n kube-system --timeout=120s
-
 
 
 log "Creating karpenter namespace..."
@@ -112,7 +117,7 @@ sleep 10
 log "Applying K8s manifests..."
 kubectl apply -f kubernetes-manifests/secrets/
 kubectl apply -f kubernetes-manifests/configmap/configmap.yaml
-kubectl apply -f kubernetes-manifests/deployments/blue-deployments/auth-service/ 
+kubectl apply -f kubernetes-manifests/deployments/blue-deployments/auth-service/
 kubectl apply -f kubernetes-manifests/deployments/blue-deployments/conversion-service/
 kubectl apply -f kubernetes-manifests/deployments/blue-deployments/wallet-service/
 kubectl apply -f kubernetes-manifests/deployments/blue-deployments/withdrawal-service/

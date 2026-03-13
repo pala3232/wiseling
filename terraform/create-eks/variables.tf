@@ -19,3 +19,8 @@ variable "eks_cluster_sg_id" {
   description = "Security group ID for EKS cluster"
   type        = string
 }
+
+variable "eks_nodes_sg_id" {
+  description = "Security group ID for EKS nodes"
+  type        = string
+}

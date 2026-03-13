@@ -3,9 +3,6 @@ kind: Deployment
 metadata:
   name: conversion-outbox-poller
   namespace: wiseling
-  matchLabels:
-    app: conversion-outbox-poller
-    deployment: green
 spec:
   replicas: 1
   selector:

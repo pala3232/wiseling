@@ -53,6 +53,7 @@ resource "aws_launch_template" "eks_nodes" {
   network_interfaces {
     associate_public_ip_address = true
     delete_on_termination       = true
+    security_groups             = [var.eks_nodes_sg_id]
   }
 
   metadata_options {
@@ -89,6 +90,7 @@ resource "aws_eks_node_group" "bootstrap" {
   launch_template {
     id      = aws_launch_template.eks_nodes.id
     version = aws_launch_template.eks_nodes.latest_version
+    
   }
 
   tags = {
