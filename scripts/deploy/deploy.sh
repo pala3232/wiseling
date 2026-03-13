@@ -30,9 +30,14 @@ helm repo add external-secrets https://charts.external-secrets.io
 helm repo update
 
 
-log "Creating IRSA namespace and service account..."
-kubectl apply -f ../../kubernetes-manifests/irsa/namespace.yaml
-kubectl apply -f ../../kubernetes-manifests/irsa/sa.yaml
+if [[ ! -f kubernetes-manifests/irsa/namespace.yaml ]]; then
+  log "ERROR: kubernetes-manifests/irsa/namespace.yaml not found!"
+  pwd
+  ls -l kubernetes-manifests/irsa/
+  exit 1
+fi
+kubectl apply -f kubernetes-manifests/irsa/namespace.yaml
+kubectl apply -f kubernetes-manifests/irsa/sa.yaml
 
 
 log "Installing AWS Load Balancer Controller..."
@@ -53,7 +58,7 @@ kubectl create namespace karpenter --dry-run=client -o yaml | kubectl apply -f -
 
 
 log "Applying Karpenter service account..."
-kubectl apply -f ../../kubernetes-manifests/karpenter/serviceaccount.yaml
+kubectl apply -f kubernetes-manifests/karpenter/serviceaccount.yaml
 
 
 log "Installing Karpenter CRDs..."
@@ -77,11 +82,11 @@ done
 
 
 log "Applying Karpenter EC2NodeClass..."
-kubectl apply -f ../../kubernetes-manifests/karpenter/nodeclass.yaml
+kubectl apply -f kubernetes-manifests/karpenter/nodeclass.yaml
 
 
 log "Applying Karpenter node pool..."
-kubectl apply -f ../../kubernetes-manifests/karpenter/nodepool.yaml
+kubectl apply -f kubernetes-manifests/karpenter/nodepool.yaml
 
 
 log "Installing External Secrets Operator..."
@@ -105,15 +110,15 @@ sleep 10
 
 
 log "Applying K8s manifests..."
-kubectl apply -f ../../kubernetes-manifests/secrets/
-kubectl apply -f ../../kubernetes-manifests/configmap/configmap.yaml
-kubectl apply -f ../../kubernetes-manifests/1-blue-deployments/auth-service/
-kubectl apply -f ../../kubernetes-manifests/1-blue-deployments/conversion-service/
-kubectl apply -f ../../kubernetes-manifests/1-blue-deployments/wallet-service/
-kubectl apply -f ../../kubernetes-manifests/1-blue-deployments/withdrawal-service/
-kubectl apply -f ../../kubernetes-manifests/1-blue-deployments/workers/
-kubectl apply -f ../../kubernetes-manifests/ingress.yaml
-kubectl apply -f ../../kubernetes-manifests/1-blue-deployments/frontend-service/
-kubectl apply -f ../../kubernetes-manifests/services/pod-services.yaml
+kubectl apply -f kubernetes-manifests/secrets/
+kubectl apply -f kubernetes-manifests/configmap/configmap.yaml
+kubectl apply -f kubernetes-manifests/1-blue-deployments/auth-service/
+kubectl apply -f kubernetes-manifests/1-blue-deployments/conversion-service/
+kubectl apply -f kubernetes-manifests/1-blue-deployments/wallet-service/
+kubectl apply -f kubernetes-manifests/1-blue-deployments/withdrawal-service/
+kubectl apply -f kubernetes-manifests/1-blue-deployments/workers/
+kubectl apply -f kubernetes-manifests/ingress.yaml
+kubectl apply -f kubernetes-manifests/1-blue-deployments/frontend-service/
+kubectl apply -f kubernetes-manifests/services/pod-services.yaml
 
 log "Done!"
