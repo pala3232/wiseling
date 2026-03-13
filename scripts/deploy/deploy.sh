@@ -125,5 +125,6 @@ kubectl apply -f kubernetes-manifests/deployments/blue-deployments/workers/
 kubectl apply -f kubernetes-manifests/ingress.yaml
 kubectl apply -f kubernetes-manifests/deployments/blue-deployments/frontend-service/
 kubectl apply -f kubernetes-manifests/services/pod-services.yaml
+kubectl apply -f kubernetes-manifests/network-policies/
 
 log "Done!"

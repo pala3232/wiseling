@@ -24,6 +24,4 @@ Contains the "Wiseling" microservices backend, designed for secure and scalable 
 - Runbook will be published ASAP
 
 ### Left to build soon:
-- finishing netpolicies
 - CloudFront distribution for ALB
-- Add network policies to deploy script

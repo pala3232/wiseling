@@ -31,6 +31,15 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-southeast-2
+
+      - name: Cleanup ingresses
+        continue-on-error: true
+        run: |
+          aws eks update-kubeconfig --name wiseling-eks-cluster --region ap-southeast-2
+          kubectl delete ingress -n wiseling --all --ignore-not-found
+          kubectl delete ingress -n monitoring --all --ignore-not-found
+          sleep 60
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
       - name: Terraform Init
@@ -41,5 +50,6 @@ jobs:
           echo "You must type DESTROY in the confirm_destroy field to proceed."
           exit 1
       - name: Terraform Destroy
+        continue-on-error: true
         if: ${{ github.event.inputs.confirm_destroy == 'DESTROY' }}
         run: terraform -chdir=${{ steps.setdir.outputs.dir }} destroy -auto-approve
