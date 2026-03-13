@@ -8,3 +8,13 @@ variable "app_name" {
 }
 
 # I use no default. it's dynamic.
+
+variable "oidc_provider_arn" {
+  description = "OIDC provider ARN for EKS"
+  type        = string
+}
+
+variable "eks_cluster_id" {
+  description = "EKS cluster ID for OIDC policy"
+  type        = string
+}

@@ -1,16 +1,10 @@
 terraform {
 
-  backend "s3" {
-    bucket = "wiseling-terraform-state-pala3105"
-    key    = "create-sqs/terraform.tfstate"
-    region = "ap-southeast-2"
-
-  }
 
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 4.0"
+      version = "~> 5.0"
     }
   }
 

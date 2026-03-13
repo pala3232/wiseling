@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: conversion-dynamo-cleaner
+  namespace: wiseling
+  matchLabels:
+    app: conversion-dynamo-cleaner
+    deployment: green
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: conversion-dynamo-cleaner
+      deployment: green
+  template:
+    metadata:
+      labels:
+        app: conversion-dynamo-cleaner
+        deployment: green
+    spec:
+      serviceAccountName: wiseling-sa
+      containers:
+      - name: conversion-dynamo-cleaner
+        image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/conversion-service:1.0.8
+        command: ["python", "-m", "app.services.dynamo_cleaner"]
+        envFrom:
+          - configMapRef:
+              name: wiseling-config
+        env:
+          - name: DATABASE_URL
+            valueFrom:
+              secretKeyRef:
+                name: db-url-conversion
+                key: DATABASE_URL
+        resources:
+          limits:
+            memory: "256Mi"
+            cpu: "250m"
+          requests:
+            memory: "128Mi"
+            cpu: "100m"

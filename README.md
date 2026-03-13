@@ -24,5 +24,7 @@ Contains the "Wiseling" microservices backend, designed for secure and scalable 
 - Runbook will be published ASAP
 
 ### Left to build soon:
-- Smoke tests, end-to-end testing
-- Frontend
+- Network policies for restricting pod-to-pod traffic.
+- Pods on private subnet (deciding between nat gw/interface endpoint)
+- CloudFront distribution for ALB
+- Node AutoScaling-Pod AutoScaling

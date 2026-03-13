@@ -8,3 +8,13 @@ variable "app_name" {
 variable "db_password" {
   default = "admin12345"
 }
+
+variable "private_subnet_ids" {
+  description = "Private subnet IDs for RDS"
+  type        = list(string)
+}
+
+variable "rds_sg_id" {
+  description = "Security group ID for RDS"
+  type        = string
+}

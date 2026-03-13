@@ -1,9 +1,4 @@
 terraform {
-  backend "s3" {
-    bucket = "wiseling-terraform-state-pala3105"
-    key    = "create-eks/terraform.tfstate"
-    region = "ap-southeast-2"
-  }
 
   required_providers {
     aws = {
@@ -35,25 +30,15 @@ provider "kubernetes" {
   }
 }
 
-data "terraform_remote_state" "vpc" {
-  backend = "s3"
-  config = {
-    bucket = "wiseling-terraform-state-pala3105"
-    key    = "main-vpc/terraform.tfstate"
-    region = "ap-southeast-2"
-  }
-}
+
 
 resource "aws_eks_cluster" "wiseling-eks-cluster" {
   name     = "${var.app_name}-eks-cluster"
   role_arn = aws_iam_role.eks_cluster_role.arn
 
   vpc_config {
-    subnet_ids = [
-      data.terraform_remote_state.vpc.outputs.public_subnet_id,
-      data.terraform_remote_state.vpc.outputs.public_subnet_2_id
-    ]
-    security_group_ids = [data.terraform_remote_state.vpc.outputs.eks_cluster_sg_id]
+    subnet_ids         = var.public_subnet_ids
+    security_group_ids = [var.eks_cluster_sg_id]
   }
 
   tags = {
@@ -91,10 +76,7 @@ resource "aws_eks_node_group" "bootstrap" {
   cluster_name    = aws_eks_cluster.wiseling-eks-cluster.name
   node_group_name = "bootstrap"
   node_role_arn   = aws_iam_role.eks_node_role.arn
-  subnet_ids      = [
-    data.terraform_remote_state.vpc.outputs.public_subnet_id,
-    data.terraform_remote_state.vpc.outputs.public_subnet_2_id
-  ]
+  subnet_ids      = var.public_subnet_ids
 
   scaling_config {
     desired_size = 1

@@ -1,12 +1,6 @@
 # provisions IAM role for IRSA on the cluster
 terraform {
 
-  backend "s3" {
-    bucket = "wiseling-terraform-state-pala3105"
-    key    = "create-iam/terraform.tfstate"
-    region = "ap-southeast-2"
-
-  }
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -21,26 +15,19 @@ provider "aws" {
   region = var.aws_region
 }
 
-data "terraform_remote_state" "eks" {
-  backend = "s3"
-  config = {
-    bucket = "wiseling-terraform-state-pala3105"
-    key    = "create-eks/terraform.tfstate"
-    region = "ap-southeast-2"
-  }
-}
+
 
 data "aws_iam_policy_document" "assume_role_policy" {
   statement {
     effect = "Allow"
     principals {
       type        = "Federated"
-      identifiers = [data.terraform_remote_state.eks.outputs.oidc_provider_arn]
+      identifiers = [var.oidc_provider_arn]
     }
     actions = ["sts:AssumeRoleWithWebIdentity"]
     condition {
       test     = "StringEquals"
-      variable = "oidc.eks.ap-southeast-2.amazonaws.com/id/${data.terraform_remote_state.eks.outputs.eks_cluster_id}:sub"
+      variable = "oidc.eks.ap-southeast-2.amazonaws.com/id/${var.eks_cluster_id}:sub"
       values   = ["system:serviceaccount:wiseling:wiseling-sa", "system:serviceaccount:kube-system:wiseling-sa"]
     }
   }
@@ -91,12 +78,12 @@ data "aws_iam_policy_document" "karpenter_assume" {
     effect = "Allow"
     principals {
       type        = "Federated"
-      identifiers = [data.terraform_remote_state.eks.outputs.oidc_provider_arn]
+      identifiers = [var.oidc_provider_arn]
     }
     actions = ["sts:AssumeRoleWithWebIdentity"]
     condition {
       test     = "StringEquals"
-      variable = "oidc.eks.ap-southeast-2.amazonaws.com/id/${data.terraform_remote_state.eks.outputs.eks_cluster_id}:sub"
+      variable = "oidc.eks.ap-southeast-2.amazonaws.com/id/${var.eks_cluster_id}:sub"
       values   = ["system:serviceaccount:karpenter:karpenter-sa"]
     }
   }

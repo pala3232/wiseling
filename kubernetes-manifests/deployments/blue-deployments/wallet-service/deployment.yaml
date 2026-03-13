@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wallet-service-deployment
+  namespace: wiseling
+  labels:
+    app: wallet-service
+    deployment: blue
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: wallet-service
+      deployment: blue
+  template:
+    metadata:
+      labels:
+        app: wallet-service
+        deployment: blue
+    spec:
+      serviceAccountName: wiseling-sa
+      containers:
+      - name: wallet-service
+        image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/wallet-service:1.0.13
+        ports:
+        - containerPort: 8001
+        envFrom:
+        - configMapRef:
+            name: wiseling-config
+        - secretRef:
+            name: jwt-secret
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-url-wallet
+              key: DATABASE_URL
+        resources:
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+          requests:
+            memory: "128Mi"
+            cpu: "150m"

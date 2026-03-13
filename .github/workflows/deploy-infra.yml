@@ -1,0 +1,47 @@
+name: Deploy Terraform Infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_module:
+        description: 'Terraform module name (e.g., create_rds, create_eks, etc. Leave blank for all)'
+        required: false
+        default: ''
+      action:
+        description: 'Terraform action (plan or apply)'
+        required: true
+        default: 'plan'
+        type: choice
+        options:
+          - plan
+          - apply
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set Terraform command flags
+        id: tfflags
+        run: |
+          if [ -n "${{ github.event.inputs.target_module }}" ]; then
+            echo "::set-output name=target_flag::-target=module.${{ github.event.inputs.target_module }}"
+          else
+            echo "::set-output name=target_flag::"
+          fi
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-southeast-2
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+      - name: Terraform Init
+        run: terraform -chdir=terraform init
+      - name: Terraform Plan
+        if: ${{ github.event.inputs.action == 'plan' }}
+        run: terraform -chdir=terraform plan ${{ steps.tfflags.outputs.target_flag }}
+      - name: Terraform Apply
+        if: ${{ github.event.inputs.action == 'apply' }}
+        run: terraform -chdir=terraform apply -auto-approve ${{ steps.tfflags.outputs.target_flag }}

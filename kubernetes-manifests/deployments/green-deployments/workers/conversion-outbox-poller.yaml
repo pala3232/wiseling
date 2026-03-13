@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: conversion-outbox-poller
+  namespace: wiseling
+  matchLabels:
+    app: conversion-outbox-poller
+    deployment: green
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: conversion-outbox-poller
+      deployment: green
+  template:
+    metadata:
+      labels:
+        app: conversion-outbox-poller
+        deployment: green
+    spec:
+      serviceAccountName: wiseling-sa
+      containers:
+      - name: conversion-outbox-poller
+        image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/conversion-service:1.0.8
+        command: ["python", "-m", "app.services.outbox_poller"]
+        envFrom:
+          - configMapRef:
+              name: wiseling-config
+        env:
+          - name: DATABASE_URL
+            valueFrom:
+              secretKeyRef:
+                name: db-url-conversion
+                key: DATABASE_URL
+        resources:
+          limits:
+            memory: "256Mi"
+            cpu: "250m"
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
