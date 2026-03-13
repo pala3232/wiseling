@@ -112,7 +112,7 @@ sleep 10
 log "Applying K8s manifests..."
 kubectl apply -f kubernetes-manifests/secrets/
 kubectl apply -f kubernetes-manifests/configmap/configmap.yaml
-kubectl apply -f kubernetes-manifests/deployments/blue-deployments/auth-service/
+kubectl apply -f kubernetes-manifests/deployments/blue-deployments/auth-service/ 
 kubectl apply -f kubernetes-manifests/deployments/blue-deployments/conversion-service/
 kubectl apply -f kubernetes-manifests/deployments/blue-deployments/wallet-service/
 kubectl apply -f kubernetes-manifests/deployments/blue-deployments/withdrawal-service/
