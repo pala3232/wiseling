@@ -26,3 +26,4 @@ Contains the "Wiseling" microservices backend, designed for secure and scalable 
 ### Left to build soon:
 - finishing netpolicies
 - CloudFront distribution for ALB
+- Add network policies to deploy script
