@@ -51,7 +51,7 @@ resource "aws_launch_template" "eks_nodes" {
   name_prefix = "eks-nodes-"
 
   network_interfaces {
-    associate_public_ip_address = true
+    associate_public_ip_address = false
     delete_on_termination       = true
     security_groups             = [var.eks_nodes_sg_id]
   }
@@ -77,7 +77,7 @@ resource "aws_eks_node_group" "bootstrap" {
   cluster_name    = aws_eks_cluster.wiseling-eks-cluster.name
   node_group_name = "bootstrap"
   node_role_arn   = aws_iam_role.eks_node_role.arn
-  subnet_ids      = var.public_subnet_ids
+  subnet_ids      = var.private_subnet_ids
 
   scaling_config {
     desired_size = 1

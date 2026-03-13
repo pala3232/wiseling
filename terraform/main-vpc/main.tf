@@ -31,9 +31,11 @@ resource "aws_subnet" "public" {
   cidr_block        = "10.0.1.0/24"
   availability_zone = "ap-southeast-2a"
     tags = {
-        Name = "${var.app_name}-public-subnet"
-        Project = var.app_name
-        "karpenter.sh/discovery" = "wiseling-eks-cluster"
+      Name                                        = "${var.app_name}-public-subnet"
+      Project                                     = var.app_name
+      "karpenter.sh/discovery"                    = "wiseling-eks-cluster"
+      "kubernetes.io/role/elb"                    = "1"
+      "kubernetes.io/cluster/wiseling-eks-cluster" = "shared"
     }
 }
 
@@ -43,9 +45,11 @@ resource "aws_subnet" "public_2" {
   cidr_block        = "10.0.2.0/24"
   availability_zone = "ap-southeast-2b"
   tags = {
-    Name    = "${var.app_name}-public-subnet-2"
-    Project = var.app_name
-    "karpenter.sh/discovery" = "wiseling-eks-cluster"
+    Name                                        = "${var.app_name}-public-subnet-2"
+    Project                                     = var.app_name
+    "karpenter.sh/discovery"                    = "wiseling-eks-cluster"
+    "kubernetes.io/role/elb"                    = "1"
+    "kubernetes.io/cluster/wiseling-eks-cluster" = "shared"
   }
 }
 
@@ -90,8 +94,11 @@ resource "aws_subnet" "private" {
   cidr_block        = "10.0.3.0/24"
   availability_zone = "ap-southeast-2a"
   tags = {
-    Name    = "${var.app_name}-private-subnet"
-    Project = var.app_name
+    Name                                        = "${var.app_name}-private-subnet"
+    Project                                     = var.app_name
+    "karpenter.sh/discovery"                    = "wiseling-eks-cluster"
+    "kubernetes.io/role/internal-elb"           = "1"
+    "kubernetes.io/cluster/wiseling-eks-cluster" = "shared"
   }
 }
 
@@ -100,8 +107,11 @@ resource "aws_subnet" "private_2" {
   cidr_block        = "10.0.4.0/24"
   availability_zone = "ap-southeast-2b"
   tags = {
-    Name    = "${var.app_name}-private-subnet-2"
-    Project = var.app_name
+    Name                                        = "${var.app_name}-private-subnet-2"
+    Project                                     = var.app_name
+    "karpenter.sh/discovery"                    = "wiseling-eks-cluster"
+    "kubernetes.io/role/internal-elb"           = "1"
+    "kubernetes.io/cluster/wiseling-eks-cluster" = "shared"
   }
 }
 
@@ -123,3 +133,26 @@ resource "aws_route_table_association" "private_2" {
   route_table_id = aws_route_table.private.id
 }
 
+resource "aws_eip" "nat" {
+  domain = "vpc"
+  tags = {
+    Name    = "${var.app_name}-nat-eip"
+    Project = var.app_name
+  }
+}
+
+resource "aws_nat_gateway" "main" {
+  allocation_id = aws_eip.nat.id
+  subnet_id     = aws_subnet.public.id
+  tags = {
+    Name    = "${var.app_name}-nat-gw"
+    Project = var.app_name
+  }
+  depends_on = [aws_internet_gateway.main]
+}
+
+resource "aws_route" "private_nat" {
+  route_table_id         = aws_route_table.private.id
+  destination_cidr_block = "0.0.0.0/0"
+  nat_gateway_id         = aws_nat_gateway.main.id
+}
