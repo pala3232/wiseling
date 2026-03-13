@@ -2,11 +2,6 @@ name: Configure EKS Cluster & Deploy Manifests
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - 'scripts/deploy/deploy.sh'
-      - 'kubernetes-manifests/**'
-      - '.github/workflows/deploy-cluster.yml'
 
 jobs:
   deploy-cluster:
