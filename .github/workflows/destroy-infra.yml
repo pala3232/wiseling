@@ -38,8 +38,72 @@ jobs:
           aws eks update-kubeconfig --name wiseling-eks-cluster --region ap-southeast-2
           kubectl delete ingress -n wiseling --all --ignore-not-found
           kubectl delete ingress -n monitoring --all --ignore-not-found
-          sleep 60
+          
+          echo "Waiting for ALB to be deleted..."
+          for i in $(seq 1 24); do
+            COUNT=$(aws elbv2 describe-load-balancers --region ap-southeast-2 \
+              --query 'LoadBalancers[?contains(LoadBalancerName, `k8s-wiseling`)]' \
+              --output text | wc -l)
+            if [ "$COUNT" -eq 0 ]; then
+              echo "ALB deleted."
+              break
+            fi
+            echo "Still waiting... ($i/24)"
+            sleep 10
+          done
 
+      - name: Cleanup LB controller SGs
+        continue-on-error: true
+        run: |
+          VPC_ID=$(aws ec2 describe-vpcs --region ap-southeast-2 \
+            --filters Name=tag:Name,Values=wiseling-vpc \
+            --query 'Vpcs[0].VpcId' --output text)
+          
+          if [ -n "$VPC_ID" ] && [ "$VPC_ID" != "None" ]; then
+            SG_IDS=$(aws ec2 describe-security-groups --region ap-southeast-2 \
+              --filters Name=vpc-id,Values=$VPC_ID \
+                        Name=tag:elbv2.k8s.aws/cluster,Values=wiseling-eks-cluster \
+              --query 'SecurityGroups[*].GroupId' --output text)
+            
+            for SG_ID in $SG_IDS; do
+              # Revoke any rules referencing this SG from other SGs
+              REFS=$(aws ec2 describe-security-groups --region ap-southeast-2 \
+                --filters Name=ip-permission.group-id,Values=$SG_ID \
+                --query 'SecurityGroups[*].GroupId' --output text)
+              for REF_SG in $REFS; do
+                RULE_IDS=$(aws ec2 describe-security-group-rules --region ap-southeast-2 \
+                  --filters Name=group-id,Values=$REF_SG \
+                  --query "SecurityGroupRules[?ReferencedGroupInfo.GroupId==\`$SG_ID\`].SecurityGroupRuleId" \
+                  --output text)
+                if [ -n "$RULE_IDS" ] && [ "$RULE_IDS" != "None" ]; then
+                  aws ec2 revoke-security-group-ingress --region ap-southeast-2 \
+                    --group-id $REF_SG --security-group-rule-ids $RULE_IDS || true
+                fi
+              done
+              echo "Deleting SG $SG_ID"
+              aws ec2 delete-security-group --region ap-southeast-2 --group-id $SG_ID || true
+            done
+          fi
+
+      - name: Cleanup EKS cluster SG
+        continue-on-error: true
+        run: |
+          VPC_ID=$(aws ec2 describe-vpcs --region ap-southeast-2 \
+            --filters Name=tag:Name,Values=wiseling-vpc \
+            --query 'Vpcs[0].VpcId' --output text)
+          
+          if [ -n "$VPC_ID" ] && [ "$VPC_ID" != "None" ]; then
+            SG_ID=$(aws ec2 describe-security-groups --region ap-southeast-2 \
+              --filters Name=vpc-id,Values=$VPC_ID \
+                        Name=group-name,Values=eks-cluster-sg-wiseling-eks-cluster-* \
+              --query 'SecurityGroups[0].GroupId' --output text)
+            
+            if [ -n "$SG_ID" ] && [ "$SG_ID" != "None" ]; then
+              echo "Deleting EKS cluster SG $SG_ID"
+              aws ec2 delete-security-group --region ap-southeast-2 --group-id $SG_ID || true
+            fi
+          fi
+          
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
       - name: Terraform Init
@@ -50,6 +114,5 @@ jobs:
           echo "You must type DESTROY in the confirm_destroy field to proceed."
           exit 1
       - name: Terraform Destroy
-        continue-on-error: true
         if: ${{ github.event.inputs.confirm_destroy == 'DESTROY' }}
         run: terraform -chdir=${{ steps.setdir.outputs.dir }} destroy -auto-approve
