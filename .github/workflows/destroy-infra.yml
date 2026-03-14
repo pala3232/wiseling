@@ -98,6 +98,11 @@ jobs:
         uses: hashicorp/setup-terraform@v3
       - name: Terraform Init
         run: terraform -chdir=${{ steps.setdir.outputs.dir }} init
+      - name: Remove kubernetes provider resources from state
+        continue-on-error: true
+        run: |
+          terraform -chdir=${{ steps.setdir.outputs.dir }} state rm \
+            module.create_eks.kubernetes_annotations.aws_node
       - name: Confirm destroy
         if: ${{ github.event.inputs.confirm_destroy != 'DESTROY' }}
         run: |
