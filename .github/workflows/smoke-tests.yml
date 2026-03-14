@@ -44,8 +44,15 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{"email":"debug@test.com","password":"Test1234"}'
       - name: Run smoke tests
-        run: |
-          chmod +x scripts/smoke-tests/main.sh
-          ./scripts/smoke-tests/main.sh
         env:
           BASE_URL: ${{ steps.resolve_url.outputs.base_url }}
+        run: |
+          chmod +x scripts/smoke-tests/main.sh
+          # debug
+          echo "BASE_URL is: $BASE_URL"
+          curl -sf -X POST "${BASE_URL}/api/v1/auth/register" \
+                    -H "Content-Type: application/json" \
+                    -d "{\"email\":\"pretest@test.com\",\"password\":\"Test1234\"}" && echo "direct curl ok" || echo "direct curl failed"
+                ./scripts/smoke-tests/main.sh
+                env:
+                BASE_URL: ${{ steps.resolve_url.outputs.base_url }}
