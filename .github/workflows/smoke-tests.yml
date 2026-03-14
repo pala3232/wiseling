@@ -36,13 +36,6 @@ jobs:
             echo "base_url=http://${ALB}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Debug register endpoint
-        env:
-          BASE_URL: ${{ steps.resolve_url.outputs.base_url }}
-        run: |
-          curl -v -X POST "${BASE_URL}/api/v1/auth/register" \
-            -H "Content-Type: application/json" \
-            -d '{"email":"debug@test.com","password":"Test1234"}'
       - name: Run smoke tests
         env:
           BASE_URL: ${{ steps.resolve_url.outputs.base_url }}

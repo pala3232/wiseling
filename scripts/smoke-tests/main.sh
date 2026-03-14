@@ -89,8 +89,8 @@ assert_http() {
 
 #  Test IDs (unique per run) 
 TS=$(date +%s)
-EMAIL1="smoketest1_${TS}@wiseling.test"
-EMAIL2="smoketest2_${TS}@wiseling.test"
+EMAIL1="smoketest1_${TS}@example.com"
+EMAIL2="smoketest2_${TS}@example.com"
 PASS1="SmokePass${TS}!"
 TOKEN=""
 TOKEN2=""
