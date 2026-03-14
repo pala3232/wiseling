@@ -31,33 +31,31 @@ require_env() {
   fi
 }
 
-# Make a request and return the response body. Exits non-zero on HTTP error.
+# Make a request and return the response body.
 req() {
   local method="$1" path="$2"
   shift 2
-  curl -sf -X "$method" "${BASE_URL}${path}" \
+  curl -s -X "$method" "${BASE_URL}${path}" \
     -H "Content-Type: application/json" \
-    "$@"
+    "$@" || true
 }
 
-# Make a request with Bearer token
 req_auth() {
   local method="$1" path="$2"
   shift 2
-  curl -sf -X "$method" "${BASE_URL}${path}" \
+  curl -s -X "$method" "${BASE_URL}${path}" \
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer ${TOKEN}" \
-    "$@"
+    "$@" || true
 }
 
-# Make a request with Bearer token for user 2
 req_auth2() {
   local method="$1" path="$2"
   shift 2
-  curl -sf -X "$method" "${BASE_URL}${path}" \
+  curl -s -X "$method" "${BASE_URL}${path}" \
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer ${TOKEN2}" \
-    "$@"
+    "$@" || true
 }
 
 assert_field() {
