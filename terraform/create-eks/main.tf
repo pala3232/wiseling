@@ -47,6 +47,7 @@ resource "aws_eks_cluster" "wiseling-eks-cluster" {
   }
   access_config {
     authentication_mode = "API_AND_CONFIG_MAP"
+    bootstrap_cluster_creator_admin_permissions = true
   }
 }
 
@@ -172,6 +173,7 @@ resource "aws_iam_role_policy_attachment" "vpc_cni" {
 }
 
 resource "kubernetes_annotations" "aws_node" {
+  depends_on = [aws_eks_cluster.wiseling-eks-cluster]
   api_version = "v1"
   kind        = "ServiceAccount"
   metadata {
