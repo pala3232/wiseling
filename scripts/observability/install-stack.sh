@@ -28,5 +28,6 @@ helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
 
 log "Applying Grafana ingress..."
 kubectl apply -f grafana-ingress.yaml -n monitoring
+kubectl apply -f grafana-network-policy.yaml -n monitoring
 
 log "Observability stack installation complete!"
