@@ -5,3 +5,10 @@ output "eks_cluster_id" {
 output "oidc_provider_arn" {
   value = aws_iam_openid_connect_provider.eks.arn
 }
+
+variable "admin_iam_arn" {
+  description = "IAM ARN for local kubectl access"
+  type        = string
+  default     = ""
+  sensitive   = true
+}

@@ -189,3 +189,20 @@ resource "aws_iam_openid_connect_provider" "eks" {
   thumbprint_list = [data.tls_certificate.eks.certificates[0].sha1_fingerprint]
   url             = aws_eks_cluster.wiseling-eks-cluster.identity[0].oidc[0].issuer
 }
+
+resource "aws_eks_access_entry" "admin" {
+  count         = var.admin_iam_arn != "" ? 1 : 0
+  cluster_name  = aws_eks_cluster.wiseling-eks-cluster.name
+  principal_arn = var.admin_iam_arn
+  type          = "STANDARD"
+}
+
+resource "aws_eks_access_policy_association" "admin" {
+  count         = var.admin_iam_arn != "" ? 1 : 0
+  cluster_name  = aws_eks_cluster.wiseling-eks-cluster.name
+  principal_arn = var.admin_iam_arn
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+  access_scope {
+    type = "cluster"
+  }
+}

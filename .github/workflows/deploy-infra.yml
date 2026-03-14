@@ -42,7 +42,12 @@ jobs:
       - name: Terraform Plan
         if: ${{ github.event.inputs.action == 'plan' }}
         run: terraform -chdir=terraform plan ${{ steps.tfflags.outputs.target_flag }}
+        env:
+          TF_VAR_admin_iam_arn: ${{ secrets.ADMIN_IAM_ARN }}
+
       - name: Terraform Apply
         continue-on-error: true
         if: ${{ github.event.inputs.action == 'apply' }}
         run: terraform -chdir=terraform apply -auto-approve ${{ steps.tfflags.outputs.target_flag }}
+        env:
+          TF_VAR_admin_iam_arn: ${{ secrets.ADMIN_IAM_ARN }}
