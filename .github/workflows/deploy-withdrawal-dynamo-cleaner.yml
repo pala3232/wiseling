@@ -1,4 +1,4 @@
-name: Build and Push Withdrawal Dynamo Cleaner
+name: Deploy Withdrawal Dynamo Cleaner
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ env:
   IMAGE_TAG: 1.0.13
 
 jobs:
-  build-and-push:
+  deploy:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
