@@ -8,36 +8,7 @@ Production-grade multi-currency wallet API with FX conversions and P2P transfers
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        Internet (ALB)                        │
-└──────────┬──────────┬──────────┬──────────┬─────────────────┘
-           │          │          │          │
-    auth-service  wallet-service  conversion  withdrawal
-      :8000         :8001        :8002       :8003
-           │          │          │          │
-           └──────────┴──────────┴──────────┘
-                              │
-                    ┌─────────┴──────────┐
-                    │    AWS SQS Queues   │
-                    │  conversions        │
-                    │  withdrawals        │
-                    └─────────┬──────────┘
-                              │
-                       wallet-consumer
-                              │
-                    ┌─────────┴──────────┐
-                    │   PostgreSQL RDS    │
-                    │   (single instance  │
-                    │    4 schemas)       │
-                    └────────────────────┘
-                              │
-                    ┌─────────┴──────────┐
-                    │  DynamoDB Global   │
-                    │  Table (outbox DR  │
-                    │  buffer)           │
-                    └────────────────────┘
-```
+![Wiseling Architecture](images/wiseling-infra-v2.drawio.png)
 
 ### Services
 

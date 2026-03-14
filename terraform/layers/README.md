@@ -1,5 +1,11 @@
 # Wiseling — Terraform Layers
 
+## Architecture
+
+The following diagram illustrates the overall architecture for the Wiseling infrastructure managed by these Terraform layers:
+
+![Wiseling Architecture](../../images/wiseling-infra-v2.drawio.png)
+
 ## Structure
 
 ```
