@@ -138,7 +138,6 @@ resource "aws_ecr_repository" "services" {
     "wallet-service",
     "conversion-service",
     "withdrawal-service",
-    "withdrawal-processor",
     "frontend"
   ])
 

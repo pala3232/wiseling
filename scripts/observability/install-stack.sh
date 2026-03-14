@@ -1,5 +1,3 @@
-kubectl apply -f grafana-ingress.yaml -n monitoring
-
 #!/bin/bash
 set -euo pipefail
 
