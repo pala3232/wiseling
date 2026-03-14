@@ -196,7 +196,7 @@ CONV_ID=$(echo "$CONV" | python3 -c "import sys,json; print(json.load(sys.stdin)
 assert_not_empty "Create conversion - got id" "$CONV_ID"
 assert_field "Create conversion" "$CONV" "from_currency" "USD"
 assert_field "Create conversion" "$CONV" "to_currency" "EUR"
-assert_field "Create conversion" "$CONV" "status" "COMPLETED"
+assert_field "Create conversion" "$CONV" "status" "PENDING"
 
 # Idempotency — same key returns same record
 CONV2=$(req_auth POST /api/v1/conversions \

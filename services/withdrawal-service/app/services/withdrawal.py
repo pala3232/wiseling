@@ -43,6 +43,7 @@ async def create_transfer(
         fee=Decimal("0"),
         net_amount=amount,
         recipient_id=recipient_id,
+        transfer_type="transfer",
         status="PENDING",
     )
 
