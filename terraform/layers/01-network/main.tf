@@ -150,6 +150,7 @@ resource "aws_vpc_endpoint" "dynamodb" {
   vpc_id          = aws_vpc.main.id
   service_name    = "com.amazonaws.ap-southeast-2.dynamodb"
   route_table_ids = [aws_route_table.public.id, aws_route_table.private.id]
+  tags = { Project = var.app_name }
 }
 
 # Security groups
@@ -203,10 +204,11 @@ resource "aws_security_group" "eks_cluster" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = { Name = "wiseling-eks-cluster-sg" }
+  tags = { Name = "wiseling-eks-cluster-sg", Project = var.app_name }
 }
 
 resource "aws_security_group" "rds" {
+    tags = { Name = "wiseling-rds-sg", Project = var.app_name }
   name   = "wiseling-rds-sg"
   vpc_id = aws_vpc.main.id
 

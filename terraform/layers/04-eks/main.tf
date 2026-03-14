@@ -58,6 +58,7 @@ resource "aws_iam_role" "eks_cluster" {
       Action    = "sts:AssumeRole"
     }]
   })
+  tags = { Project = var.app_name }
 }
 
 resource "aws_iam_role" "eks_node" {
@@ -70,6 +71,7 @@ resource "aws_iam_role" "eks_node" {
       Action    = "sts:AssumeRole"
     }]
   })
+  tags = { Project = var.app_name }
 }
 
 resource "aws_iam_role_policy_attachment" "eks_cluster_policy" {
@@ -143,6 +145,7 @@ resource "aws_iam_role" "vpc_cni" {
       }
     }]
   })
+  tags = { Project = var.app_name }
 }
 
 resource "aws_iam_role_policy_attachment" "vpc_cni" {
@@ -180,6 +183,7 @@ resource "aws_launch_template" "eks_nodes" {
     http_tokens                 = "required"
     http_put_response_hop_limit = 2
   }
+  tags = { Project = var.app_name }
 }
 
 resource "aws_launch_template" "karpenter" {
@@ -189,6 +193,7 @@ resource "aws_launch_template" "karpenter" {
     http_tokens                 = "required"
     http_put_response_hop_limit = 2
   }
+  tags = { Project = var.app_name }
 }
 
 # Bootstrap node group

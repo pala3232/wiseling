@@ -58,6 +58,9 @@ data "aws_iam_policy_document" "pod_assume" {
 resource "aws_iam_role" "pod_role" {
   name               = "pod-role"
   assume_role_policy = data.aws_iam_policy_document.pod_assume.json
+  tags = {
+    Project = var.app_name
+  }
 }
 
 resource "aws_iam_role_policy_attachment" "attach_secrets" {
@@ -106,6 +109,9 @@ data "aws_iam_policy_document" "karpenter_assume" {
 resource "aws_iam_role" "karpenter" {
   name               = "wiseling-karpenter-role"
   assume_role_policy = data.aws_iam_policy_document.karpenter_assume.json
+  tags = {
+    Project = var.app_name
+  }
 }
 
 resource "aws_iam_role_policy_attachment" "karpenter" {
@@ -128,6 +134,9 @@ resource "aws_iam_policy" "secrets" {
       ]
     }]
   })
+  tags = {
+    Project = var.app_name
+  }
 }
 
 resource "aws_iam_policy" "cloudwatch" {
@@ -141,6 +150,9 @@ resource "aws_iam_policy" "cloudwatch" {
       Resource = "*"
     }]
   })
+  tags = {
+    Project = var.app_name
+  }
 }
 
 resource "aws_iam_policy" "dynamodb" {
@@ -157,6 +169,9 @@ resource "aws_iam_policy" "dynamodb" {
       Resource = "arn:aws:dynamodb:ap-southeast-2:359707702022:table/wiseling-outbox"
     }]
   })
+  tags = {
+    Project = var.app_name
+  }
 }
 
 resource "aws_iam_policy" "sqs" {
@@ -172,11 +187,17 @@ resource "aws_iam_policy" "sqs" {
       ]
     }]
   })
+  tags = {
+    Project = var.app_name
+  }
 }
 
 resource "aws_iam_policy" "lb_controller" {
   name   = "AWSLoadBalancerControllerPolicy"
   policy = file("${path.module}/policies/lb-controller-policy.json")
+  tags = {
+    Project = var.app_name
+  }
 }
 
 resource "aws_iam_policy" "karpenter" {
@@ -204,4 +225,7 @@ resource "aws_iam_policy" "karpenter" {
       Resource = "*"
     }]
   })
+  tags = {
+    Project = var.app_name
+  }
 }

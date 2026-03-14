@@ -33,6 +33,7 @@ data "terraform_remote_state" "network" {
 resource "aws_db_subnet_group" "wiseling" {
   name       = "wiseling-subnet-group"
   subnet_ids = data.terraform_remote_state.network.outputs.all_private_subnet_ids
+  tags = { Project = var.app_name }
 }
 
 resource "aws_db_instance" "wiseling" {
@@ -56,6 +57,7 @@ resource "aws_db_instance" "wiseling" {
 resource "aws_secretsmanager_secret" "db_urls" {
   name                    = "wiseling/db-urls"
   recovery_window_in_days = 0
+  tags = { Project = var.app_name }
 }
 
 resource "aws_secretsmanager_secret_version" "db_urls" {
@@ -109,6 +111,7 @@ resource "aws_dynamodb_table" "outbox" {
   billing_mode     = "PAY_PER_REQUEST"
   stream_enabled   = true
   stream_view_type = "NEW_AND_OLD_IMAGES"
+  tags = { Project = var.app_name }
 
   attribute {
     name = "pk"
