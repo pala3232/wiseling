@@ -26,10 +26,12 @@ jobs:
 
 
       - name: Debug register endpoint
+        env:
+          BASE_URL: ${{ steps.resolve_url.outputs.base_url }}
         run: |
-            curl -v -X POST "${{ steps.resolve_url.outputs.base_url }}/api/v1/auth/register" \
-                -H "Content-Type: application/json" \
-                -d '{"email":"debug@test.com","password":"Test1234"}'
+          curl -v -X POST "${BASE_URL}/api/v1/auth/register" \
+            -H "Content-Type: application/json" \
+            -d '{"email":"debug@test.com","password":"Test1234"}'
 
 
       - name: Resolve BASE_URL
