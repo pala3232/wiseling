@@ -45,6 +45,9 @@ resource "aws_eks_cluster" "wiseling-eks-cluster" {
     Name    = "${var.app_name}-eks-cluster"
     Project = var.app_name
   }
+  access_config {
+    authentication_mode = "API_AND_CONFIG_MAP"
+  }
 }
 
 resource "aws_launch_template" "eks_nodes" {
