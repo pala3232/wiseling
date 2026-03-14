@@ -238,15 +238,6 @@ assert_http "Lookup non-existent account" "$HTTP_CODE" "404"
 #  6. P2P Transfer 
 log "6. P2P Transfer — send money"
 
-# DEBUG
-echo "=== DEBUG TRANSFER ==="
-curl -s -X POST "${BASE_URL}/api/v1/withdrawals/transfer" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer ${TOKEN}" \
-  -d "{\"to_account_number\":\"${ACCOUNT2}\",\"currency\":\"USD\",\"amount\":\"10\",\"idempotency_key\":\"debug-${TS}\"}" \
-  -w "\nHTTP: %{http_code}"
-echo "=== END DEBUG ==="
-
 TRANSFER_KEY="smoke-transfer-${TS}"
 TRANSFER=$(req_auth POST /api/v1/withdrawals/transfer \
   -d "{\"to_account_number\":\"${ACCOUNT2}\",\"currency\":\"USD\",\"amount\":\"10\",\"idempotency_key\":\"${TRANSFER_KEY}\"}" \
