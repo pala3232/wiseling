@@ -25,9 +25,6 @@ resource "aws_ecr_repository" "wiseling-ecr-repo" {
   ])
   name                 = "${var.app_name}/${each.key}"
   image_tag_mutability = "IMMUTABLE"
-  lifecycle {
-    prevent_destroy = true
-  }
 
   image_scanning_configuration {
     scan_on_push = false
