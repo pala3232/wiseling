@@ -2,7 +2,7 @@
 
 Production-grade multi-currency wallet API with FX conversions and P2P transfers, built on AWS EKS using a microservices architecture with event-driven processing.
 
-**Live region:** ap-southeast-2 (Sydney) · **DR region:** ap-southeast-1 (Singapore)
+**Live region:** ap-southeast-2 (Sydney) · **DR region:** ap-southeast-1 (Singapore) * DR Region to be finished soon. Infra graph doesn't include it.
 
 ---
 
