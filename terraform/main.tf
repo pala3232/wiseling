@@ -33,6 +33,8 @@ module "create_eks" {
   private_subnet_ids = module.main_vpc.all_private_subnet_ids  
   eks_cluster_sg_id  = module.main_vpc.eks_cluster_sg_id
   eks_nodes_sg_id    = module.main_vpc.eks_nodes_sg_id
+  admin_iam_arn      = var.admin_iam_arn
+  
 }
 
 
