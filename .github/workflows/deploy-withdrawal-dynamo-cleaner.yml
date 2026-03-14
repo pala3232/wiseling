@@ -5,7 +5,7 @@ on:
 
 env:
   ECR_REPO_URL: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/withdrawal-service
-  IMAGE_TAG: 1.0.13
+  IMAGE_TAG: 1.0.15
 
 jobs:
   deploy:
