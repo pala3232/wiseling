@@ -13,18 +13,9 @@ on:
         default: ''
 
 jobs:
-  terraform-destroy:
+  pre-cleanup:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Set working directory
-        id: setdir
-        run: |
-          if [ -n "${{ github.event.inputs.target_module }}" ]; then
-            echo "::set-output name=dir::terraform/${{ github.event.inputs.target_module }}"
-          else
-            echo "::set-output name=dir::terraform"
-          fi
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -66,7 +57,6 @@ jobs:
               --query 'SecurityGroups[*].GroupId' --output text)
             
             for SG_ID in $SG_IDS; do
-              # Revoke any rules referencing this SG from other SGs
               REFS=$(aws ec2 describe-security-groups --region ap-southeast-2 \
                 --filters Name=ip-permission.group-id,Values=$SG_ID \
                 --query 'SecurityGroups[*].GroupId' --output text)
@@ -84,6 +74,49 @@ jobs:
               aws ec2 delete-security-group --region ap-southeast-2 --group-id $SG_ID || true
             done
           fi
+
+  terraform-destroy:
+    needs: pre-cleanup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set working directory
+        id: setdir
+        run: |
+          if [ -n "${{ github.event.inputs.target_module }}" ]; then
+            echo "::set-output name=dir::terraform/${{ github.event.inputs.target_module }}"
+          else
+            echo "::set-output name=dir::terraform"
+          fi
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-southeast-2
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+      - name: Terraform Init
+        run: terraform -chdir=${{ steps.setdir.outputs.dir }} init
+      - name: Confirm destroy
+        if: ${{ github.event.inputs.confirm_destroy != 'DESTROY' }}
+        run: |
+          echo "You must type DESTROY in the confirm_destroy field to proceed."
+          exit 1
+      - name: Terraform Destroy
+        if: ${{ github.event.inputs.confirm_destroy == 'DESTROY' }}
+        run: terraform -chdir=${{ steps.setdir.outputs.dir }} destroy -auto-approve
+
+  post-cleanup:
+    needs: terraform-destroy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-southeast-2
 
       - name: Cleanup EKS cluster SG
         continue-on-error: true
@@ -103,16 +136,3 @@ jobs:
               aws ec2 delete-security-group --region ap-southeast-2 --group-id $SG_ID || true
             fi
           fi
-          
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-      - name: Terraform Init
-        run: terraform -chdir=${{ steps.setdir.outputs.dir }} init
-      - name: Confirm destroy
-        if: ${{ github.event.inputs.confirm_destroy != 'DESTROY' }}
-        run: |
-          echo "You must type DESTROY in the confirm_destroy field to proceed."
-          exit 1
-      - name: Terraform Destroy
-        if: ${{ github.event.inputs.confirm_destroy == 'DESTROY' }}
-        run: terraform -chdir=${{ steps.setdir.outputs.dir }} destroy -auto-approve

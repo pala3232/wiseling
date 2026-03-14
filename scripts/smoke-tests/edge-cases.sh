@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-BASE_URL="http://alb-url-gotten-from-ingress"
+BASE_URL="http://k8s-wiseling-8924e1e1d0-1319653657.ap-southeast-2.elb.amazonaws.com/"
 
 log() {
   echo -e "\033[1;34m[$(date '+%Y-%m-%d %H:%M:%S')] $*\033[0m"
