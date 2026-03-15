@@ -53,8 +53,18 @@ jobs:
         continue-on-error: true
         run: |
           aws eks update-kubeconfig --name wiseling-eks-cluster --region ap-southeast-2
-          KARPENTER_NODES=$(kubectl get nodes -l karpenter.sh/provisioner-name \
+
+          KARPENTER_NODES=$(kubectl get nodes \
+            -l karpenter.sh/nodepool \
             --no-headers -o custom-columns=':metadata.name' 2>/dev/null || true)
+
+          if [ -z "$KARPENTER_NODES" ]; then
+            # fallback for older karpenter versions
+            KARPENTER_NODES=$(kubectl get nodes \
+              -l karpenter.sh/provisioner-name \
+              --no-headers -o custom-columns=':metadata.name' 2>/dev/null || true)
+          fi
+
           if [ -n "$KARPENTER_NODES" ]; then
             echo "$KARPENTER_NODES" | xargs -I{} kubectl drain {} \
               --ignore-daemonsets --delete-emptydir-data --force --timeout=120s || true
@@ -118,7 +128,6 @@ jobs:
           TF_VAR_admin_iam_arn: ${{ secrets.ADMIN_IAM_ARN }}
           TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
         run: |
-          # Destroy order: iam → eks → data → network
           LAYERS=("03-iam" "04-eks" "02-data" "01-network")
           TARGET="${{ github.event.inputs.layer }}"
 
