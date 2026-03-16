@@ -202,7 +202,7 @@ resource "aws_eks_node_group" "bootstrap" {
   cluster_name    = aws_eks_cluster.main.name
   node_group_name = "bootstrap"
   node_role_arn   = aws_iam_role.eks_node.arn
-  subnet_ids      = data.terraform_remote_state.network.outputs.all_private_subnet_ids
+  subnet_ids = [data.terraform_remote_state.network.outputs.private_subnet_2_id]
   depends_on = [aws_eks_cluster.main]
 
   scaling_config {
@@ -211,7 +211,7 @@ resource "aws_eks_node_group" "bootstrap" {
     max_size     = 1
   }
 
-  instance_types = ["t3.medium"]
+  instance_types = ["t3.large"]
 
   launch_template {
     id      = aws_launch_template.eks_nodes.id
