@@ -2,7 +2,7 @@
 
 Production-grade multi-currency wallet API with FX conversions and P2P transfers, built on AWS EKS using a microservices architecture with event-driven processing.
 
-**Live region:** ap-southeast-2 (Sydney) · **DR region:** ap-southeast-1 (Singapore)
+**Live region:** ap-southeast-2 (Sydney) · **DR region:** ap-southeast-1 (Singapore) * DR Region to be finished soon. Infra graph doesn't include it.
 
 ---
 
@@ -116,7 +116,7 @@ Single RDS instance with 4 schemas, one per service. All services use `create_al
 ### Disaster Recovery
 
 DynamoDB Global Table (`wiseling-outbox`) replicates outbox events to ap-southeast-1 in real time. On regional failover, `wallet-reconciler` replays unprocessed events from the DynamoDB buffer to restore consistency.
-
+DR cluster to be commited soon.
 ---
 
 ## API Reference
