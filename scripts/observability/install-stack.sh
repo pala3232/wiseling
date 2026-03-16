@@ -10,6 +10,7 @@ error_handler() {
   exit 1
 }
 trap 'error_handler $LINENO' ERR
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 log "Adding Prometheus Community Helm repo..."
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
@@ -35,9 +36,8 @@ helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
   --wait \
   --timeout 5m
 
-
 log "Applying Grafana ingress..."
-kubectl apply -f grafana-ingress.yaml -n monitoring
-kubectl apply -f grafana-network-policy.yaml -n monitoring
+kubectl apply -f "$SCRIPT_DIR/grafana-ingress.yaml" -n monitoring
+kubectl apply -f "$SCRIPT_DIR/grafana-network-policy.yaml" -n monitoring
 
 log "Observability stack installation complete!"
