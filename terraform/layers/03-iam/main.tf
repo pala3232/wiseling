@@ -218,6 +218,7 @@ resource "aws_iam_policy" "karpenter" {
         "iam:PassRole", "iam:CreateInstanceProfile", "iam:DeleteInstanceProfile",
         "iam:GetInstanceProfile", "iam:AddRoleToInstanceProfile",
         "iam:TagInstanceProfile", "iam:RemoveRoleFromInstanceProfile",
+        "iam:ListInstanceProfiles",
         "sqs:DeleteMessage", "sqs:GetQueueAttributes", "sqs:GetQueueUrl", "sqs:ReceiveMessage",
         "eks:DescribeCluster",
         "ssm:GetParameter"
