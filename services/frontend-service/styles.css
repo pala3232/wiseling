@@ -150,7 +150,7 @@ html,body{height:100%;background:var(--bg);color:var(--ink);font-family:var(--fo
 
 /* ── DASHBOARD ── */
 #dashboard-screen{display:none;min-height:100vh;background:var(--bg);}
-#dashboard-screen.visible{display:block;}
+#dashboard-screen.visible{display:flex;flex-direction:column;}
 .topbar {
   background: var(--bg2);
   border-bottom: 1px solid var(--border);
@@ -374,18 +374,37 @@ td.strong{color:var(--ink);font-weight:600;}
   .form-card{max-width:100%;}
 }
 
-.topbar {
-  background:var(--bg2);
-  border-bottom:1px solid var(--border);
-  display:flex;
-  flex-direction:column;
-  position:sticky;
-  top:0;
-  z-index:100;
-}
+/* ── TOPBAR (bottom block merged above) ── */
 .topbar-row {
   height:52px;
   display:flex;
   align-items:center;
   padding:0 1.5rem;
 }
+/* ── PROOF OF PAYMENT MODAL ── */
+.proof-modal { max-width: 440px; }
+.proof-header { text-align: center; margin-bottom: 1.25rem; }
+.proof-check {
+  width: 48px; height: 48px; border-radius: 50%;
+  background: var(--green-bg); border: 1.5px solid rgba(62,207,142,0.35);
+  color: var(--green); font-size: 1.4rem; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 0.75rem;
+  animation: proofPop 0.3s cubic-bezier(0.175,0.885,0.32,1.275) both;
+}
+@keyframes proofPop { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.proof-title { font-size: 1.05rem; font-weight: 700; color: var(--ink); margin-bottom: 0.2rem; }
+.proof-sub { font-size: 0.8rem; color: var(--ink-soft); font-family: var(--mono); }
+.proof-amount {
+  text-align: center; font-size: 2rem; font-weight: 700;
+  color: var(--ink); letter-spacing: -0.02em;
+  margin-bottom: 1.25rem; line-height: 1.1;
+}
+.proof-currency { font-size: 1rem; font-weight: 400; color: var(--ink-soft); margin-left: 4px; }
+.proof-ref {
+  font-family: var(--mono); font-size: 0.72rem !important;
+  color: var(--primary) !important; cursor: pointer;
+  text-decoration: underline dotted; text-underline-offset: 3px;
+  word-break: break-all;
+}
+.proof-ref:hover { color: var(--primary-dark) !important; }
