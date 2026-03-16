@@ -4,7 +4,7 @@ metadata:
   name: conversion-outbox-poller
   namespace: wiseling
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: conversion-outbox-poller

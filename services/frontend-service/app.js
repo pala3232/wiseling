@@ -79,6 +79,25 @@ createApp({
     // ── TOASTS ──
     const toasts = ref([]);
 
+    // ── ENV INFO ──
+    const envInfo = ref({ pod_name: "unreachable", node_name: "unreachable", cluster_name: "unreachable", aws_region: "unreachable", aws_az: "unreachable" });
+    onMounted(async () => {
+      if (token.value) enterDashboard();
+      try {
+        const res = await fetch('/api/v1/envinfo');
+        if (res.ok) {
+          const data = await res.json();
+          envInfo.value = {
+            pod_name: data.pod_name ?? "unknown",
+            node_name: data.node_name ?? "unknown",
+            cluster_name: data.cluster_name ?? "unknown",
+            aws_region: data.aws_region ?? "unknown",
+            aws_az: data.aws_az ?? "unknown"
+          };
+        }
+      } catch {}
+    });
+
     // ── COMPUTED ──
     const isLoggedIn = computed(() => !!token.value);
 
@@ -472,6 +491,26 @@ createApp({
       return status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Pending';
     }
 
+    // Env info bar: detect wrapping
+    const envInfoBoxRef = ref(null);
+    const envInfoIsWrapped = ref(false);
+    onMounted(() => {
+      // ...existing code...
+      // Watch for env info bar wrapping
+      const checkWrap = () => {
+        const el = envInfoBoxRef.value;
+        if (!el) return;
+        // If height is more than 1.5x lineHeight, it's wrapped
+        const lineHeight = parseFloat(getComputedStyle(el).lineHeight);
+        envInfoIsWrapped.value = el.offsetHeight > lineHeight * 1.5;
+      };
+      window.addEventListener('resize', checkWrap);
+      setTimeout(checkWrap, 100);
+    });
+    onUnmounted(() => {
+      window.removeEventListener('resize', () => {});
+    });
+
     return {
       // auth
       token, userEmail, authTab, authEmail, authPassword, authLoading, authError,
@@ -497,6 +536,9 @@ createApp({
       // utils
       toasts, sseConnected, date, txStatusClass, txStatusLabel, fmtAmount,
       isLoggedIn,
+      envInfo,
+      envInfoBoxRef,
+      envInfoIsWrapped,
     };
   },
 
@@ -530,57 +572,126 @@ createApp({
 
   <!-- ══ AUTH SCREEN ══ -->
   <div id="auth-screen" :class="{visible: !isLoggedIn}">
+    <!-- Top bar -->
+    <div style="background:var(--bg2);border-bottom:1px solid var(--border);height:56px;display:flex;align-items:center;padding:0 2rem;justify-content:space-between;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div class="auth-logo-box">W</div>
+        <div class="auth-logo-text">Wiseling</div>
+      </div>
+      <div class="auth-topbar-register mobile-only" style="display:flex;align-items:center;gap:1.5rem;">
+        <button @click="authTab='register'" style="background:transparent;border:1px solid var(--border2);color:var(--ink);font-family:var(--font);font-size:0.82rem;padding:0.4rem 1rem;border-radius:var(--radius);cursor:pointer;">Register</button>
+      </div>
+    </div>
+    <div class="banner-row">
+      <span style="color:var(--primary);flex-shrink:0;">ⓘ</span>
+      When sending money, we now verify recipient account numbers in real-time before any transfer is processed.
+    </div>
     <div class="auth-body">
       <div class="auth-left">
-        <div class="auth-logo" style="margin-bottom:2.5rem"><div class="auth-logo-box">W</div><div class="auth-logo-text">Wiseling</div></div>
-        <div class="auth-left-tag">Convert & Pay</div>
-        <h1>Simple, secure<br><span>international banking.</span></h1>
-        <p>Manage multiple currencies, convert funds at live rates, and send money internationally — all from one account.</p>
-        <div class="auth-features">
-          <div class="auth-feature"><div class="auth-feature-dot"></div>Multi-currency wallets (USD, EUR, GBP and more)</div>
-          <div class="auth-feature"><div class="auth-feature-dot"></div>Real-time FX conversions at competitive rates</div>
-          <div class="auth-feature"><div class="auth-feature-dot"></div>International IBAN transfers</div>
-          <div class="auth-feature"><div class="auth-feature-dot"></div>Full transaction history</div>
+        <div>
+          <div class="auth-left-tag">Convert & Pay</div>
+          <h1>Simple, secure<br><span>international banking.</span></h1>
+          <p>Manage multiple currencies, convert funds at live rates, send money between your wallets — all from one account.</p>
+          <div class="auth-features">
+            <div class="auth-feature"><div class="auth-feature-dot"></div>Multi-currency wallets (USD, EUR, GBP and more)</div>
+            <div class="auth-feature"><div class="auth-feature-dot"></div>Real-time FX conversions at competitive rates</div>
+            <div class="auth-feature"><div class="auth-feature-dot"></div>Account-to-account transfers</div>
+            <div class="auth-feature"><div class="auth-feature-dot"></div>Full transaction history</div>
+          </div>
         </div>
       </div>
       <div class="auth-right">
         <div class="auth-form-wrap">
-          <div class="auth-form-title">{{ authTab === 'login' ? 'Sign in to Wiseling' : 'Create your account' }}</div>
-          <div class="auth-form-sub">{{ authTab === 'login' ? 'Enter your credentials to access your account' : 'Get started in seconds' }}</div>
+          <div class="auth-form-title">{{ authTab === 'login' ? 'Welcome' : 'Create your account' }}</div>
           <div class="tab-switcher">
             <button class="tab-btn" :class="{active:authTab==='login'}" @click="authTab='login'">Sign In</button>
-            <button class="tab-btn" :class="{active:authTab==='register'}" @click="authTab='register'">Register</button>
+            <button class="tab-btn desktop-only" :class="{active:authTab==='register'}" @click="authTab='register'">Register</button>
           </div>
           <form @submit.prevent="handleAuth">
             <div class="form-group"><label class="form-label">Email Address</label><input class="form-input" type="email" v-model="authEmail" placeholder="you@example.com" required autocomplete="email" /></div>
             <div class="form-group"><label class="form-label">Password</label><input class="form-input" type="password" v-model="authPassword" placeholder="••••••••" required autocomplete="current-password" /></div>
-            <button class="btn-primary" type="submit" :disabled="authLoading">{{ authLoading ? 'Please wait...' : (authTab === 'login' ? 'Sign In' : 'Create Account') }}</button>
+            <div v-if="authTab === 'login'" style="font-size:0.82rem;color:var(--ink-soft);margin-bottom:0.7rem;line-height:1.5;">
+              By logging in, you agree to our platform’s <a href="#" style="color:var(--primary);text-decoration:underline;">Terms</a> and <a href="#" style="color:var(--primary);text-decoration:underline;">Privacy Policy</a>.
+            </div>
+            <div v-if="authTab === 'login'" style="background:var(--surface);border:1px solid var(--primary-dim);border-radius:var(--radius);padding:0.85rem 1rem;font-size:0.83rem;color:var(--ink-mid);margin-bottom:1.1rem;line-height:1.6;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:0.3rem;"><span style="color:var(--primary);font-size:1.1em;">&#9432;</span><strong>New: Money Conversion Feature</strong></div>
+              We’ve introduced a new money conversion feature for your convenience. Instantly convert between supported currencies within your account.<br>
+              All conversions are processed securely and include a flat fee of <strong>0.30%</strong> per transaction.<br>
+              For more details, please review our <a href="#" style="color:var(--primary);text-decoration:underline;">Terms</a> or contact support.
+            </div>
+            <button class="btn-primary" type="submit" :disabled="authLoading">
+              <template v-if="authLoading">
+                Please wait...
+              </template>
+              <template v-else-if="authTab === 'login'">
+                <span style="display: inline-flex; align-items: center; gap: 0.45em;">
+                  <span>Sign In</span>
+                  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;">
+                    <rect x="4" y="9" width="12" height="7" rx="2" fill="currentColor" fill-opacity="0.18"/>
+                    <rect x="4" y="9" width="12" height="7" rx="2" stroke="currentColor" stroke-width="1.5"/>
+                    <path d="M7 9V7.5C7 5.567 8.567 4 10.5 4C12.433 4 14 5.567 14 7.5V9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    <circle cx="10" cy="12.5" r="1" fill="currentColor"/>
+                  </svg>
+                </span>
+              </template>
+              <template v-else>
+                Create Account
+              </template>
+            </button>
             <div v-if="authError" class="error-msg show">{{ authError }}</div>
           </form>
+        </div>
+        <!-- Env info bar: direct child of .auth-right, after .auth-form-wrap -->
+        <div v-if="envInfo && authTab === 'login'" class="env-info-box env-info-authcard">
+          Pod: {{ envInfo.pod_name }}
+          <span style="padding:0 0.5em;">&bull;</span>
+          Node: {{ envInfo.node_name }}
+          <span style="padding:0 0.5em;">&bull;</span>
+          Cluster: {{ envInfo.cluster_name }}
+          <template v-if="envInfo.aws_region && envInfo.aws_region !== 'unknown' && envInfo.aws_az && envInfo.aws_az !== 'unknown'">
+            <span style="padding:0 0.5em;">&bull;</span> <span style="white-space:nowrap">Region: {{ envInfo.aws_region }}{{ envInfo.aws_az }}</span>
+          </template>
+          <template v-else-if="envInfo.aws_region && envInfo.aws_region !== 'unknown'">
+            <span style="padding:0 0.5em;">&bull;</span> <span style="white-space:nowrap">Region: {{ envInfo.aws_region }}</span>
+          </template>
+          <template v-else-if="envInfo.aws_az && envInfo.aws_az !== 'unknown'">
+            <span style="padding:0 0.5em;">&bull;</span> <span style="white-space:nowrap">AZ: {{ envInfo.aws_az }}</span>
+          </template>
+        </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ══ DASHBOARD ══ -->
+<!-- ══ DASHBOARD ══ -->
   <div id="dashboard-screen" :class="{visible: isLoggedIn}">
     <header class="topbar">
-      <div class="topbar-logo"><div class="topbar-logo-box">W</div><div class="topbar-logo-text">Wiseling</div></div>
-      <nav class="topbar-nav">
-        <button v-for="(label, key) in PAGE_NAMES" :key="key" class="topbar-nav-item" :class="{active:currentPage===key}" @click="navigate(key)">{{ label }}</button>
-      </nav>
-      <div class="topbar-right">
-        <div class="rates-row">
-          <div class="rate-item"><span class="rate-pair">EUR/USD</span><span class="rate-val">{{ ratesCache['EUR/USD'] ? parseFloat(ratesCache['EUR/USD']).toFixed(4) : '—' }}</span></div>
-          <div class="rate-item"><span class="rate-pair">GBP/USD</span><span class="rate-val">{{ ratesCache['GBP/USD'] ? parseFloat(ratesCache['GBP/USD']).toFixed(4) : '—' }}</span></div>
-        </div>
-        <div class="user-area">
-          <div class="user-avatar">{{ userEmail ? userEmail[0].toUpperCase() : '?' }}</div>
-          <span class="user-email-short">{{ userEmail }}</span>
-          <button class="logout-link" @click="logout">Sign out</button>
+      <div class="topbar-row">
+        <div class="topbar-logo"><div class="topbar-logo-box">W</div><div class="topbar-logo-text">Wiseling</div></div>
+        <nav class="topbar-nav">
+          <button v-for="(label, key) in PAGE_NAMES" :key="key" class="topbar-nav-item" :class="{active:currentPage===key}" @click="navigate(key)">{{ label }}</button>
+        </nav>
+        <div class="topbar-right">
+          <div class="rates-row">
+            <div class="rate-item"><span class="rate-pair">EUR/USD</span><span class="rate-val">{{ ratesCache['EUR/USD'] ? parseFloat(ratesCache['EUR/USD']).toFixed(4) : '—' }}</span></div>
+            <div class="rate-item"><span class="rate-pair">GBP/USD</span><span class="rate-val">{{ ratesCache['GBP/USD'] ? parseFloat(ratesCache['GBP/USD']).toFixed(4) : '—' }}</span></div>
+          </div>
+          <div class="user-area">
+            <div class="user-avatar">{{ userEmail ? userEmail[0].toUpperCase() : '?' }}</div>
+            <span class="user-email-short">{{ userEmail }}</span>
+            <button class="logout-link" @click="logout">Sign out</button>
+          </div>
         </div>
       </div>
+      <!-- Banner row -->
+      <div class="banner-row">
+        <span style="color:var(--primary);flex-shrink:0;">ⓘ</span>
+        When sending money, we now verify recipient account numbers in real-time before any transfer is processed.
+      </div>
     </header>
+
+
+    <div class="subnav">
 
     <div class="subnav">
       <span class="subnav-home" @click="navigate('overview')">Home</span>

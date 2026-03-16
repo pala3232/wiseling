@@ -4,7 +4,7 @@ from app.api.v1.router import router
 from app.db.session import engine
 from app.db.base import Base
 from app.models.user import User
-
+import os
 
 
 
@@ -28,3 +28,12 @@ async def startup():
 @app.get("/health")
 async def health():
     return {"service": "auth", "status": "ok"}
+@app.get("/api/v1/envinfo")
+async def get_env_info():
+    return {
+        "pod_name": os.environ.get("HOSTNAME", "unknown"),
+        "node_name": os.environ.get("NODE_NAME", "unknown"),
+        "cluster_name": os.environ.get("CLUSTER_NAME", "unknown"),
+        "aws_region": os.environ.get("AWS_REGION", "unknown"),
+        "aws_az": os.environ.get("AWS_AZ", "unknown"),
+    }
