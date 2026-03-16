@@ -15,10 +15,13 @@ spec:
           values: ["on-demand"]
         - key: node.kubernetes.io/instance-type
           operator: In
-          values: ["t3.medium", "t3.large"]
+          values: ["t3.large"]
+        - key: topology.kubernetes.io/zone
+          operator: In
+          values: ["ap-southeast-2a", "ap-southeast-2b"]
   limits:
     cpu: 6
-    memory: 12Gi
+    memory: 24Gi
   disruption:
     consolidationPolicy: WhenEmptyOrUnderutilized
     consolidateAfter: 30s

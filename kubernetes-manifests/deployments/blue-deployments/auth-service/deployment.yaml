@@ -5,20 +5,27 @@ metadata:
   namespace: wiseling
   labels:
     app: auth-service
-    deployment: blue
+    deployment: green
 spec:
   replicas: 2
   selector:
     matchLabels:
       app: auth-service
-      deployment: blue
+      deployment: green
   template:
     metadata:
       labels:
         app: auth-service
-        deployment: blue
+        deployment: green
     spec:
       serviceAccountName: wiseling-sa
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: auth-service
       containers:
       - name: auth-service
         image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/auth-service:1.0.6
@@ -38,7 +45,7 @@ spec:
         resources:
           limits:
             memory: "256Mi"
-            cpu: "500m"
+            cpu: "300m"
           requests:
             memory: "128Mi"
-            cpu: "150m"
+            cpu: "100m"

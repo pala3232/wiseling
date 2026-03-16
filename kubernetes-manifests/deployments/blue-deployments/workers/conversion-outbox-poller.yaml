@@ -3,21 +3,26 @@ kind: Deployment
 metadata:
   name: conversion-outbox-poller
   namespace: wiseling
-  labels:
-    deployment: blue
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: conversion-outbox-poller
-      deployment: blue
+      deployment: green
   template:
     metadata:
       labels:
         app: conversion-outbox-poller
-        deployment: blue
+        deployment: green
     spec:
       serviceAccountName: wiseling-sa
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: conversion-outbox-poller
       containers:
       - name: conversion-outbox-poller
         image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/conversion-service:1.0.8
@@ -34,7 +39,7 @@ spec:
         resources:
           limits:
             memory: "256Mi"
-            cpu: "250m"
+            cpu: "150m"
           requests:
             memory: "128Mi"
-            cpu: "100m"
+            cpu: "50m"

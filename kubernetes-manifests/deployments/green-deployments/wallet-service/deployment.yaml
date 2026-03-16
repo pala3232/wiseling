@@ -19,6 +19,13 @@ spec:
         deployment: green
     spec:
       serviceAccountName: wiseling-sa
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: wallet-service
       containers:
       - name: wallet-service
         image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/wallet-service:1.0.13

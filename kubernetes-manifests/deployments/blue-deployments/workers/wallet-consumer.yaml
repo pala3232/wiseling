@@ -3,21 +3,26 @@ kind: Deployment
 metadata:
   name: wallet-consumer
   namespace: wiseling
-  labels:
-    deployment: blue
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: wallet-consumer
-      deployment: blue
+      deployment: green
   template:
     metadata:
       labels:
         app: wallet-consumer
-        deployment: blue
+        deployment: green
     spec:
       serviceAccountName: wiseling-sa
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: wallet-consumer
       containers:
       - name: wallet-consumer
         image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/wallet-service:1.0.13
@@ -34,7 +39,7 @@ spec:
         resources:
           limits:
             memory: "256Mi"
-            cpu: "250m"
+            cpu: "150m"
           requests:
             memory: "128Mi"
-            cpu: "100m"
+            cpu: "50m"

@@ -4,7 +4,7 @@ metadata:
   name: withdrawal-dynamo-cleaner
   namespace: wiseling
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: withdrawal-dynamo-cleaner
@@ -16,6 +16,13 @@ spec:
         deployment: green
     spec:
       serviceAccountName: wiseling-sa
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: withdrawal-dynamo-cleaner
       containers:
       - name: withdrawal-dynamo-cleaner
         image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/withdrawal-service:1.0.15

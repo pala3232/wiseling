@@ -4,20 +4,27 @@ metadata:
   name: withdrawal-processor
   namespace: wiseling
   labels:
-    deployment: blue
+    deployment: green
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: withdrawal-processor
-      deployment: blue
+      deployment: green
   template:
     metadata:
       labels:
         app: withdrawal-processor
-        deployment: blue
+        deployment: green
     spec:
       serviceAccountName: wiseling-sa
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: withdrawal-processor
       containers:
       - name: withdrawal-processor
         image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/withdrawal-service:1.0.15
@@ -34,7 +41,7 @@ spec:
         resources:
           limits:
             memory: "256Mi"
-            cpu: "250m"
+            cpu: "150m"
           requests:
             memory: "128Mi"
-            cpu: "100m"
+            cpu: "50m"

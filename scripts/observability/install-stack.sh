@@ -33,7 +33,7 @@ helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
   --set alertmanager.alertmanagerSpec.resources.requests.cpu=10m \
   --set alertmanager.alertmanagerSpec.resources.requests.memory=32Mi \
   --wait \
-  --timeout 10m
+  --timeout 5m
 
 
 log "Applying Grafana ingress..."
