@@ -60,3 +60,11 @@ jobs:
             fi
             cd "$GITHUB_WORKSPACE"
           }
+
+          if [ -n "$TARGET" ]; then
+            run_layer "$TARGET"
+          else
+            for layer in "${LAYERS[@]}"; do
+              run_layer "$layer"
+            done
+          fi
