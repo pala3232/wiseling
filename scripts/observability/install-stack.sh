@@ -22,7 +22,19 @@ helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
   --set grafana.env.GF_SERVER_ROOT_URL="http://%(domain)s/grafana" \
   --set grafana.env.GF_SERVER_SERVE_FROM_SUB_PATH="true" \
   --set grafana.adminPassword="pala3105" \
-  --wait
+  --set prometheus-node-exporter.resources.requests.cpu=50m \
+  --set prometheus-node-exporter.resources.requests.memory=64Mi \
+  --set kube-state-metrics.resources.requests.cpu=50m \
+  --set kube-state-metrics.resources.requests.memory=64Mi \
+  --set prometheus.prometheusSpec.resources.requests.cpu=100m \
+  --set prometheus.prometheusSpec.resources.requests.memory=256Mi \
+  --set grafana.resources.requests.cpu=50m \
+  --set grafana.resources.requests.memory=128Mi \
+  --set alertmanager.alertmanagerSpec.resources.requests.cpu=10m \
+  --set alertmanager.alertmanagerSpec.resources.requests.memory=32Mi \
+  --wait \
+  --timeout 10m
+
 
 log "Applying Grafana ingress..."
 kubectl apply -f grafana-ingress.yaml -n monitoring

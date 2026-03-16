@@ -19,7 +19,6 @@ spec:
   limits:
     cpu: 6
     memory: 12Gi
-    pods: 51
   disruption:
     consolidationPolicy: WhenEmptyOrUnderutilized
     consolidateAfter: 30s
