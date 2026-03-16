@@ -66,11 +66,20 @@ jobs:
           sleep 30
 
           INSTANCE_IDS=$(aws ec2 describe-instances --region ap-southeast-2 \
+                      --filters \
+                        Name=tag:aws:eks:cluster-name,Values=wiseling-eks-cluster \
+                        Name=instance-state-name,Values=running \
+                      --query 'Reservations[].Instances[].InstanceId' \
+                      --output text)
+                      
+          BOOTSTRAP_IDS=$(aws ec2 describe-instances --region ap-southeast-2 \
             --filters \
               Name=tag:eks:cluster-name,Values=wiseling-eks-cluster \
               Name=instance-state-name,Values=running \
             --query 'Reservations[].Instances[].InstanceId' \
             --output text)
+
+          INSTANCE_IDS=$(echo "$INSTANCE_IDS $BOOTSTRAP_IDS" | tr ' ' '\n' | sort -u | tr '\n' ' ' | xargs)
 
           if [ -n "$INSTANCE_IDS" ] && [ "$INSTANCE_IDS" != "None" ]; then
             echo "Terminating nodes: $INSTANCE_IDS"

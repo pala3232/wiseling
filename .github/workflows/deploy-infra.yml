@@ -46,6 +46,13 @@ jobs:
             echo "══ Layer: $layer ══"
             cd "$GITHUB_WORKSPACE/terraform/layers/$layer"
             terraform init -reconfigure
+
+            if [ "$layer" = "02-data" ] && [ "$ACTION" = "apply" ]; then
+              for repo in auth-service wallet-service conversion-service withdrawal-service frontend; do
+                terraform import "aws_ecr_repository.services[\"$repo\"]" "wiseling/$repo" 2>/dev/null || true
+              done
+            fi
+
             if [ "$ACTION" = "plan" ]; then
               terraform plan
             else
@@ -53,11 +60,3 @@ jobs:
             fi
             cd "$GITHUB_WORKSPACE"
           }
-
-          if [ -n "$TARGET" ]; then
-            run_layer "$TARGET"
-          else
-            for layer in "${LAYERS[@]}"; do
-              run_layer "$layer"
-            done
-          fi
