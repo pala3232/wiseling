@@ -59,7 +59,6 @@ jobs:
             --no-headers -o custom-columns=':metadata.name' 2>/dev/null || true)
 
           if [ -z "$KARPENTER_NODES" ]; then
-            # fallback for older karpenter versions
             KARPENTER_NODES=$(kubectl get nodes \
               -l karpenter.sh/provisioner-name \
               --no-headers -o custom-columns=':metadata.name' 2>/dev/null || true)
@@ -136,6 +135,11 @@ jobs:
             echo "══ Destroying layer: $layer ══"
             cd "$GITHUB_WORKSPACE/terraform/layers/$layer"
             terraform init -reconfigure
+
+            if [ "$layer" = "02-data" ]; then
+              terraform state rm 'aws_ecr_repository.services["withdrawal-processor"]' || true
+            fi
+
             terraform destroy -auto-approve
             cd "$GITHUB_WORKSPACE"
           }
