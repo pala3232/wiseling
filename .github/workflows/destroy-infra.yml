@@ -49,29 +49,25 @@ jobs:
             sleep 10
           done
 
-      - name: Drain and delete Karpenter nodes
+      - name: Terminate all EKS nodes
         continue-on-error: true
         run: |
-          aws eks update-kubeconfig --name wiseling-eks-cluster --region ap-southeast-2
+          INSTANCE_IDS=$(aws ec2 describe-instances --region ap-southeast-2 \
+            --filters \
+              Name=tag:eks:cluster-name,Values=wiseling-eks-cluster \
+              Name=instance-state-name,Values=running \
+            --query 'Reservations[].Instances[].InstanceId' \
+            --output text)
 
-          KARPENTER_NODES=$(kubectl get nodes \
-            -l karpenter.sh/nodepool \
-            --no-headers -o custom-columns=':metadata.name' 2>/dev/null || true)
+          if [ -n "$INSTANCE_IDS" ] && [ "$INSTANCE_IDS" != "None" ]; then
+            echo "Terminating nodes: $INSTANCE_IDS"
+            aws ec2 terminate-instances --region ap-southeast-2 --instance-ids $INSTANCE_IDS
 
-          if [ -z "$KARPENTER_NODES" ]; then
-            KARPENTER_NODES=$(kubectl get nodes \
-              -l karpenter.sh/provisioner-name \
-              --no-headers -o custom-columns=':metadata.name' 2>/dev/null || true)
-          fi
-
-          if [ -n "$KARPENTER_NODES" ]; then
-            echo "$KARPENTER_NODES" | xargs -I{} kubectl drain {} \
-              --ignore-daemonsets --delete-emptydir-data --force --timeout=120s || true
-            echo "$KARPENTER_NODES" | xargs -I{} kubectl delete node {} || true
-            echo "Waiting 30s for nodes to terminate..."
-            sleep 30
+            echo "Waiting for all nodes to terminate..."
+            aws ec2 wait instance-terminated --region ap-southeast-2 --instance-ids $INSTANCE_IDS
+            echo "All nodes terminated."
           else
-            echo "No Karpenter nodes found."
+            echo "No nodes found."
           fi
 
       - name: Cleanup LB controller security groups
