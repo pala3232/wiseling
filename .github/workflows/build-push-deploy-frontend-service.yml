@@ -45,6 +45,6 @@ jobs:
 
       - name: Deploy frontend-service
         run: |
-          kubectl apply -f kubernetes-manifests/deployments/green-deployments/frontend-service/
           docker push \
             ${{ env.ECR_REPO_URL }}:${{ env.IMAGE_TAG }}
+          kubectl apply -f kubernetes-manifests/deployments/green-deployments/frontend-service/
