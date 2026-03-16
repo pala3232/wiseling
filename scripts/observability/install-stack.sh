@@ -17,7 +17,7 @@ helm repo add prometheus-community https://prometheus-community.github.io/helm-c
 helm repo update
 
 log "Installing kube-prometheus-stack..."
-helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
   --namespace monitoring \
   --create-namespace \
   --set grafana.env.GF_SERVER_ROOT_URL="http://%(domain)s/grafana" \
