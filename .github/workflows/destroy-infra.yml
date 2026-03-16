@@ -60,7 +60,7 @@ jobs:
           aws eks update-nodegroup-config \
             --cluster-name wiseling-eks-cluster \
             --nodegroup-name bootstrap \
-            --scaling-config minSize=0,maxSize=0,desiredSize=0 \
+            --scaling-config minSize=0,maxSize=1,desiredSize=0 \
             --region ap-southeast-2 || true
 
           sleep 30
