@@ -133,8 +133,10 @@ jobs:
             terraform init -reconfigure
 
             if [ "$layer" = "02-data" ]; then
-              terraform state rm 'aws_ecr_repository.services["withdrawal-processor"]' || true
-            fi
+            for repo in auth-service wallet-service conversion-service withdrawal-service frontend; do
+              terraform state rm "aws_ecr_repository.services[\"$repo\"]" || true
+            done
+          fi
 
             terraform destroy -auto-approve
             cd "$GITHUB_WORKSPACE"
