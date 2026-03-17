@@ -306,6 +306,14 @@ createApp({
     function handleConvert() {
       convError.value = '';
       convResult.value = null;
+      const fromWallet = wallets.value.find(w => w.currency === convFrom.value);
+      const available = parseFloat(fromWallet?.balance || 0);
+      const requested = parseFloat(convAmount.value || 0);
+      if (requested <= 0) { convError.value = 'Please enter a valid amount.'; return; }
+      if (requested > available) {
+        convError.value = `Insufficient balance. You only have ${fmtAmount(available, convFrom.value)} ${convFrom.value} available.`;
+        return;
+      }
       convPending.value = {
         from_currency: convFrom.value,
         to_currency: convTo.value,
@@ -385,6 +393,15 @@ createApp({
     // ── SEND MONEY ──
     function initiateWithdraw() {
       if (!wdRecipient.value?.found) return;
+      const wallet = wallets.value.find(w => w.currency === wdCurrency.value);
+      const available = parseFloat(wallet?.balance || 0);
+      const requested = parseFloat(wdAmount.value || 0);
+      if (requested <= 0) { wdError.value = 'Please enter a valid amount.'; return; }
+      if (requested > available) {
+        wdError.value = `Insufficient balance. You only have ${fmtAmount(available, wdCurrency.value)} ${wdCurrency.value} available.`;
+        return;
+      }
+      wdError.value = '';
       showConfirmModal.value = true;
     }
 
@@ -801,7 +818,7 @@ createApp({
         <div class="auth-logo-box">W</div>
         <div class="auth-logo-text">Wiseling</div>
       </div>
-      <button @click="authTab='register'" style="background:transparent;border:1px solid var(--border2);color:var(--ink);font-family:var(--font);font-size:0.82rem;padding:0.4rem 1rem;border-radius:var(--radius);cursor:pointer;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--primary)';this.style.color='var(--primary)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--ink)'">Register</button>
+      <button class="auth-topbar-register" @click="authTab='register'">Register</button>
     </div>
     <div class="banner-row">
       <span style="color:var(--primary);flex-shrink:0;">ⓘ</span>
@@ -809,10 +826,6 @@ createApp({
     </div>
     <div class="auth-body">
       <div class="auth-left">
-        <div class="auth-logo">
-          <div class="auth-logo-box">W</div>
-          <div class="auth-logo-text">Wiseling</div>
-        </div>
         <div>
           <div class="auth-left-tag">Convert & Pay</div>
           <h1>Simple, secure<br><span>international banking.</span></h1>
@@ -824,19 +837,27 @@ createApp({
             <div class="auth-feature"><div class="auth-feature-dot"></div>Full transaction history</div>
           </div>
         </div>
-        <div class="auth-trust">256-bit encryption · SOC2 compliant · 150+ currencies</div>
       </div>
       <div class="auth-right">
         <div class="auth-form-wrap">
           <div class="auth-form-title">{{ authTab === 'login' ? 'Welcome' : 'Create your account' }}</div>
           <div class="tab-switcher">
             <button class="tab-btn" :class="{active:authTab==='login'}" @click="authTab='login'">Sign In</button>
-            <button class="tab-btn" :class="{active:authTab==='register'}" @click="authTab='register'">Register</button>
+            <button class="tab-btn desktop-only" :class="{active:authTab==='register'}" @click="authTab='register'">Register</button>
           </div>
           <form @submit.prevent="handleAuth">
             <div class="form-group"><label class="form-label">Email Address</label><input class="form-input" type="email" v-model="authEmail" placeholder="you@example.com" required autocomplete="email" /></div>
             <div class="form-group"><label class="form-label">Password</label><input class="form-input" type="password" v-model="authPassword" placeholder="••••••••" required autocomplete="current-password" /></div>
-            <button class="btn-primary" type="submit" :disabled="authLoading">{{ authLoading ? 'Please wait...' : (authTab === 'login' ? 'Sign In' : 'Create Account') }}</button>
+            <div class="feature-notice-card">
+              <div class="feature-notice-badge">New</div>
+              <div class="feature-notice-content">
+                <div class="feature-notice-title">Currency conversion is now available</div>
+                <div class="feature-notice-body">Exchange between wallets at live rates. A flat fee of <strong>0.30%</strong> applies. By using this feature, you agree to our <a href="#" class="feature-notice-link">Terms and Conditions</a>.</div>
+              </div>
+            </div>
+            <button class="btn-primary" type="submit" :disabled="authLoading">
+              <svg v-if="authTab==='login'" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:6px;margin-top:-2px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>{{ authLoading ? 'Please wait...' : (authTab === 'login' ? 'Sign In' : 'Create Account') }}
+            </button>
             <div v-if="authError" class="error-msg show">{{ authError }}</div>
             <div v-if="authTab==='login'" style="text-align:center;margin-top:1rem;">
               <a href="#" style="font-family:var(--mono);font-size:0.72rem;color:var(--ink-soft);text-decoration:underline;transition:color 0.15s;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--ink-soft)'">Forgot your password?</a>

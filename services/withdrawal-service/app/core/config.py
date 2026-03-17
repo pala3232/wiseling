@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     RDS_REPLICA_IDENTIFIER: str = ""
 
     AUTH_SERVICE_URL: str = "http://auth-service:8000"  # NEW
+    WALLET_SERVICE_URL: str = "http://wallet-service:8000"
 
     class Config:
         env_file = ".env"

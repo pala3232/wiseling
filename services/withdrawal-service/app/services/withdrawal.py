@@ -35,6 +35,16 @@ async def create_transfer(
     if recipient_id == user_id:
         raise HTTPException(status_code=400, detail="Cannot transfer to yourself")
 
+    # ── Balance check ──
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        bal_resp = await client.get(
+            f"{settings.WALLET_SERVICE_URL}/internal/wallet/balance/{user_id}/{currency}"
+        )
+        if bal_resp.status_code == 404:
+            raise HTTPException(status_code=400, detail="Wallet not found")
+        if Decimal(bal_resp.json()["balance"]) < amount:
+            raise HTTPException(status_code=400, detail="Insufficient balance")
+
     transfer = Withdrawal(
         user_id=user_id,
         idempotency_key=idempotency_key,

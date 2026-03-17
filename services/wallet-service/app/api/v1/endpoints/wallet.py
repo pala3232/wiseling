@@ -40,3 +40,11 @@ async def init(body: InitWalletsRequest, db: AsyncSession = Depends(get_db)):
 @router.get("/api/v1/wallet/transfers")
 async def get_transfers(user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db)):
     return await list_transfers(db, user_id)
+
+@router.get("/internal/wallet/balance/{user_id}/{currency}", include_in_schema=False)
+async def internal_balance(user_id: str, currency: str, db: AsyncSession = Depends(get_db)):
+    wallets = await get_wallets(db, user_id)
+    wallet = next((w for w in wallets if w.currency == currency), None)
+    if not wallet:
+        raise HTTPException(status_code=404, detail="Wallet not found")
+    return {"balance": str(wallet.balance)}
