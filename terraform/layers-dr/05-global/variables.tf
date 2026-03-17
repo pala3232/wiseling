@@ -9,7 +9,7 @@ variable "domain_name" {
 variable "primary_alb_dns" {
   description = "DNS name of the primary ALB in ap-southeast-2 (from kubectl get ingress -n wiseling)"
   type        = string
-  default = ""
+  default     = "dummy-primary.example.com"
 }
 
 variable "primary_alb_zone_id" {
@@ -21,7 +21,7 @@ variable "primary_alb_zone_id" {
 variable "dr_alb_dns" {
   description = "DNS name of the DR ALB in ap-southeast-1 (from kubectl get ingress -n wiseling)"
   type        = string
-  default = ""
+  default     = "dummy-dr.example.com"
 }
 
 variable "dr_alb_zone_id" {
