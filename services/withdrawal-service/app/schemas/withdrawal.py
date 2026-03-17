@@ -18,6 +18,8 @@ class WithdrawalResponse(BaseModel):
     fee: Decimal
     net_amount: Decimal
     recipient_id: Optional[str] = None
+    recipient_email: Optional[str] = None              # add this
+    recipient_account_number: Optional[str] = None     # add this
     transfer_type: Optional[str] = 'withdrawal'
     status: str
     created_at: datetime

@@ -13,8 +13,6 @@ from app.db.session import AsyncSessionLocal
 from app.services.wallet import debit, credit
 
 
-
-
 def get_sqs():
     return boto3.client("sqs", region_name=settings.AWS_REGION)
 
@@ -30,6 +28,13 @@ async def handle_event(event_type: str, payload: dict):
                 db, payload["user_id"], payload["to_currency"],
                 Decimal(payload["to_amount"]), "conversion", payload["conversion_id"],
             )
+            try:
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    await client.patch(
+                        f"{settings.CONVERSION_SERVICE_URL}/api/v1/conversions/internal/{payload['conversion_id']}/complete"
+                    )
+            except Exception as e:
+                print(f"[wallet] Could not mark conversion complete: {e}")
             print(f"[wallet] Settled conversion {payload['conversion_id']}")
 
         elif event_type == "withdrawal.requested":

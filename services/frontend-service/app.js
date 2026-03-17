@@ -52,6 +52,7 @@ createApp({
     const historyFilter = ref('all');
     const recentRecipients = ref(JSON.parse(localStorage.getItem('wsl_recipients') || '[]'));
     const pendingWithdrawals = ref([]);
+    const pendingConversions = ref([]);
     let pollInterval = null;
     let sseSource = null;
     const sseConnected = ref(false);
@@ -104,7 +105,12 @@ createApp({
 
     const currentRate = computed(() => {
       if (!convFrom.value || !convTo.value) return null;
-      return ratesCache.value[`${convFrom.value}/${convTo.value}`];
+      const direct = ratesCache.value[`${convFrom.value}/${convTo.value}`];
+      if (direct) return direct;
+      // try inverse pair and invert the rate
+      const inverse = ratesCache.value[`${convTo.value}/${convFrom.value}`];
+      if (inverse && parseFloat(inverse) !== 0) return (1 / parseFloat(inverse)).toFixed(8);
+      return null;
     });
 
     const currentRateText = computed(() => {
@@ -114,7 +120,9 @@ createApp({
 
     const convPreview = computed(() => {
       if (!currentRate.value || !convAmount.value) return null;
-      const received = parseFloat(convAmount.value) * parseFloat(currentRate.value) * 0.997;
+      const amount = parseFloat(convAmount.value);
+      const fee = amount * 0.003;
+      const received = (amount - fee) * parseFloat(currentRate.value);
       return `≈ ${fmtAmount(received, convTo.value)} ${convTo.value} after 0.30% fee`;
     });
 
@@ -258,6 +266,7 @@ createApp({
         allWithdrawals.value = [...sentWds, ...inboundWds].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         allTransfers.value = Array.isArray(transfers) ? transfers : [];
         pendingWithdrawals.value = sentWds.filter(w => ['pending', 'processing'].includes((w.status || '').toLowerCase()));
+        pendingConversions.value = allConversions.value.filter(c => ['pending', 'processing'].includes((c.status || '').toLowerCase()));
       } catch (e) {
         showToast(e.message, 'error');
       }
@@ -319,6 +328,9 @@ createApp({
           created_at: res.created_at || new Date().toISOString(),
         };
         showProof.value = true;
+        if (['pending','processing'].includes((res.status || '').toLowerCase())) {
+          pendingConversions.value.push(res);
+        }
         showToast('Conversion successful', 'success');
         await loadWallets();
         await loadOverview();
@@ -542,27 +554,50 @@ createApp({
       }
     }
 
-    // ── POLLING for pending withdrawals ──
+    // ── POLLING for pending withdrawals + conversions ──
     function startPolling() {
       pollInterval = setInterval(async () => {
-        if (!pendingWithdrawals.value.length) return;
+        const hasPendingWds  = pendingWithdrawals.value.length > 0;
+        const hasPendingConvs = pendingConversions.value.length > 0;
+        if (!hasPendingWds && !hasPendingConvs) return;
         try {
-          const wds = await api('GET', '/api/v1/withdrawals');
-          const fresh = Array.isArray(wds) ? wds : [];
-          let anyUpdated = false;
-          pendingWithdrawals.value = pendingWithdrawals.value.filter(pw => {
-            const updated = fresh.find(w => w.id === pw.id);
-            if (updated && !['pending', 'processing'].includes((updated.status || '').toLowerCase())) {
-              const st = (updated.status || '').toLowerCase();
-              showToast(`Transfer ${st}: ${pw.amount} ${pw.currency}`, st === 'completed' ? 'success' : 'error');
-              anyUpdated = true;
-              return false;
+          if (hasPendingWds) {
+            const wds = await api('GET', '/api/v1/withdrawals');
+            const fresh = Array.isArray(wds) ? wds.map(w => ({ ...w, direction: 'out' })) : [];
+            let anyUpdated = false;
+            pendingWithdrawals.value = pendingWithdrawals.value.filter(pw => {
+              const updated = fresh.find(w => w.id === pw.id);
+              if (updated && !['pending', 'processing'].includes((updated.status || '').toLowerCase())) {
+                const st = (updated.status || '').toLowerCase();
+                showToast(`Transfer ${st}: ${pw.amount} ${pw.currency}`, st === 'completed' ? 'success' : 'error');
+                anyUpdated = true;
+                return false;
+              }
+              return true;
+            });
+            if (anyUpdated) {
+              allWithdrawals.value = fresh.map(w => ({ ...w, direction: 'out' }));
+              await loadWallets();
             }
-            return true;
-          });
-          if (anyUpdated) {
-            allWithdrawals.value = fresh;
-            await loadWallets();
+          }
+          if (hasPendingConvs) {
+            const convs = await api('GET', '/api/v1/conversions');
+            const fresh = Array.isArray(convs) ? convs : [];
+            let anyUpdated = false;
+            pendingConversions.value = pendingConversions.value.filter(pc => {
+              const updated = fresh.find(c => c.id === pc.id);
+              if (updated && !['pending', 'processing'].includes((updated.status || '').toLowerCase())) {
+                const st = (updated.status || '').toLowerCase();
+                showToast(`Conversion ${st}: ${pc.from_amount} ${pc.from_currency} → ${pc.to_currency}`, st === 'completed' ? 'success' : 'error');
+                anyUpdated = true;
+                return false;
+              }
+              return true;
+            });
+            if (anyUpdated) {
+              allConversions.value = fresh;
+              await loadWallets();
+            }
           }
         } catch {}
       }, 5000);
@@ -737,9 +772,24 @@ createApp({
   <div v-if="showProof && proofData" class="modal-overlay" @click.self="dismissProof">
     <div class="modal proof-modal">
       <div class="proof-header">
-        <div class="proof-check">&#10003;</div>
-        <div class="proof-title">{{ proofData.type === 'conversion' ? 'Conversion Complete' : (proofData.direction === 'in' ? 'Transfer Received' : 'Transfer Sent') }}</div>
-        <div class="proof-sub">{{ proofData.type === 'conversion' ? 'Your wallets have been updated' : (proofData.direction === 'in' ? 'Funds received into your wallet' : 'Your funds have been sent successfully') }}</div>
+        <div class="proof-check" :style="['pending','processing'].includes((proofData.status||'').toLowerCase()) ? 'background:var(--amber-bg);border-color:rgba(246,173,85,0.35);color:var(--amber)' : ''">
+          {{ ['pending','processing'].includes((proofData.status||'').toLowerCase()) ? '⏳' : '&#10003;' }}
+        </div>
+        <div class="proof-title">
+          <template v-if="proofData.type === 'conversion'">
+            {{ ['pending','processing'].includes((proofData.status||'').toLowerCase()) ? 'Conversion Pending' : 'Conversion Complete' }}
+          </template>
+          <template v-else>
+            {{ ['pending','processing'].includes((proofData.status||'').toLowerCase()) ? 'Transfer Pending' : (proofData.direction === 'in' ? 'Transfer Received' : 'Transfer Sent') }}
+          </template>
+        </div>
+        <div class="proof-sub">
+          <template v-if="['pending','processing'].includes((proofData.status||'').toLowerCase())">
+            This transaction is still being processed
+          </template>
+          <template v-else-if="proofData.type === 'conversion'">Your wallets have been updated</template>
+          <template v-else>{{ proofData.direction === 'in' ? 'Funds received into your wallet' : 'Your funds have been sent successfully' }}</template>
+        </div>
       </div>
       <template v-if="proofData.type === 'transfer'">
         <div class="proof-amount">

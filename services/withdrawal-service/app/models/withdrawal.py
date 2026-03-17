@@ -21,3 +21,5 @@ class Withdrawal(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     transfer_type: Mapped[str] = mapped_column(String, default="withdrawal", nullable=True)
+    recipient_email = Column(String, nullable=True)
+    recipient_account_number = Column(String, nullable=True)

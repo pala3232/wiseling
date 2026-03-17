@@ -4,6 +4,8 @@ from app.db.session import get_db
 from app.schemas.conversion import ConversionRequest, ConversionResponse
 from app.services.conversion import create_conversion, list_conversions
 from app.core.dependencies import get_current_user_id
+from sqlalchemy import select
+from app.models.conversion import Conversion
 
 router = APIRouter(prefix="/api/v1/conversions", tags=["conversions"])
 
@@ -28,3 +30,12 @@ async def list_all(user_id: str = Depends(get_current_user_id), db: AsyncSession
 async def rates():
     from app.services.rates import get_provider
     return await get_provider().list_rates()
+
+@router.patch("/internal/{conversion_id}/complete", include_in_schema=False)
+async def complete_conversion(conversion_id: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Conversion).where(Conversion.id == conversion_id))
+    conversion = result.scalar_one_or_none()
+    if conversion:
+        conversion.status = "COMPLETED"
+        await db.commit()
+    return {"ok": True}
