@@ -119,7 +119,7 @@ jobs:
         continue-on-error: true
         run: |
           VPC_ID=$(aws ec2 describe-vpcs --region ap-southeast-1 \
-            --filters Name=tag:Name,Values=wiseling-vpc \
+            --filters Name=tag:Name,Values=wiseling-vpc-sgp \
             --query 'Vpcs[0].VpcId' --output text)
 
           if [ -z "$VPC_ID" ] || [ "$VPC_ID" = "None" ]; then
