@@ -31,6 +31,15 @@ spec:
         image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/frontend:1.1.8
         ports:
         - containerPort: 80
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
         resources:
           limits:
             memory: "128Mi"

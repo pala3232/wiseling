@@ -5,6 +5,7 @@ metadata:
   namespace: wiseling
 data:
   AWS_REGION: ap-southeast-2
+  CLUSTER_NAME: wiseling
   RATES_PROVIDER: static
   DYNAMO_OUTBOX_TABLE: wiseling-outbox
   WALLET_SERVICE_URL: http://wallet-service:8001
