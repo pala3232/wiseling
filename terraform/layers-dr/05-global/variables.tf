@@ -3,11 +3,13 @@ variable "app_name" { default = "wiseling" }
 variable "domain_name" {
   description = "Your registered domain e.g. wiseling.xyz"
   type        = string
+  default = ""
 }
 
 variable "primary_alb_dns" {
   description = "DNS name of the primary ALB in ap-southeast-2 (from kubectl get ingress -n wiseling)"
   type        = string
+  default = ""
 }
 
 variable "primary_alb_zone_id" {
@@ -19,6 +21,7 @@ variable "primary_alb_zone_id" {
 variable "dr_alb_dns" {
   description = "DNS name of the DR ALB in ap-southeast-1 (from kubectl get ingress -n wiseling)"
   type        = string
+  default = ""
 }
 
 variable "dr_alb_zone_id" {
