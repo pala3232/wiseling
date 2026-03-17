@@ -52,7 +52,6 @@ createApp({
     const historyFilter = ref('all');
     const recentRecipients = ref(JSON.parse(localStorage.getItem('wsl_recipients') || '[]'));
     const pendingWithdrawals = ref([]);
-    const pendingConversions = ref([]);
     let pollInterval = null;
     let sseSource = null;
     const sseConnected = ref(false);
@@ -64,9 +63,6 @@ createApp({
     const convLoading = ref(false);
     const convError = ref('');
     const convResult = ref(null);
-    const convPending = ref(null);
-    const showConvConfirmModal = ref(false);
-    const convConfirmLoading = ref(false);
 
     // ── WITHDRAW STATE ──
     const wdAccountNumber = ref('');
@@ -80,15 +76,27 @@ createApp({
     const showConfirmModal = ref(false);
     const confirmLoading = ref(false);
 
-    // ── PROOF OF PAYMENT ──
-    const showProof = ref(false);
-    const proofData = ref(null);
-
     // ── TOASTS ──
     const toasts = ref([]);
 
     // ── ENV INFO ──
     const envInfo = ref({ pod_name: "unreachable", node_name: "unreachable", cluster_name: "unreachable", aws_region: "unreachable", aws_az: "unreachable" });
+    onMounted(async () => {
+      if (token.value) enterDashboard();
+      try {
+        const res = await fetch('/api/v1/envinfo');
+        if (res.ok) {
+          const data = await res.json();
+          envInfo.value = {
+            pod_name: data.pod_name ?? "unknown",
+            node_name: data.node_name ?? "unknown",
+            cluster_name: data.cluster_name ?? "unknown",
+            aws_region: data.aws_region ?? "unknown",
+            aws_az: data.aws_az ?? "unknown"
+          };
+        }
+      } catch {}
+    });
 
     // ── COMPUTED ──
     const isLoggedIn = computed(() => !!token.value);
@@ -105,12 +113,7 @@ createApp({
 
     const currentRate = computed(() => {
       if (!convFrom.value || !convTo.value) return null;
-      const direct = ratesCache.value[`${convFrom.value}/${convTo.value}`];
-      if (direct) return direct;
-      // try inverse pair and invert the rate
-      const inverse = ratesCache.value[`${convTo.value}/${convFrom.value}`];
-      if (inverse && parseFloat(inverse) !== 0) return (1 / parseFloat(inverse)).toFixed(8);
-      return null;
+      return ratesCache.value[`${convFrom.value}/${convTo.value}`];
     });
 
     const currentRateText = computed(() => {
@@ -120,9 +123,7 @@ createApp({
 
     const convPreview = computed(() => {
       if (!currentRate.value || !convAmount.value) return null;
-      const amount = parseFloat(convAmount.value);
-      const fee = amount * 0.003;
-      const received = (amount - fee) * parseFloat(currentRate.value);
+      const received = parseFloat(convAmount.value) * parseFloat(currentRate.value) * 0.997;
       return `≈ ${fmtAmount(received, convTo.value)} ${convTo.value} after 0.30% fee`;
     });
 
@@ -148,11 +149,12 @@ createApp({
     });
 
     const recentActivity = computed(() => {
-      return [
-        ...allConversions.value.map(c => ({ ...c, _type: 'conversion' })),
-        ...allWithdrawals.value.map(w => ({ ...w, _type: 'withdrawal' })),
-        ...allTransfers.value.map(t => ({ ...t, _type: 'transfer' })),
+      const items = [
+        ...allConversions.value.slice(-5).map(c => ({ ...c, _type: 'conversion' })),
+        ...allWithdrawals.value.slice(-5).map(w => ({ ...w, _type: 'withdrawal' })),
+        ...allTransfers.value.slice(-5).map(t => ({ ...t, _type: 'transfer' })),
       ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 6);
+      return items;
     });
 
     const greeting = computed(() => {
@@ -218,8 +220,6 @@ createApp({
 
     // ── DASHBOARD INIT ──
     async function enterDashboard() {
-      // Defer scroll until Vue has flipped dashboard visibility
-      setTimeout(() => window.scrollTo({ top: 0, behavior: 'instant' }), 0);
       await loadRates();
       await loadOverview();
       loadMyAccountNumber();
@@ -251,21 +251,19 @@ createApp({
     async function loadOverview() {
       overviewLoading.value = true;
       try {
-        const [ws, convs, wds, transfers, recvWds] = await Promise.all([
+        const [ws, convs, wds, transfers] = await Promise.all([
           api('GET', '/api/v1/wallet/balances'),
           api('GET', '/api/v1/conversions'),
           api('GET', '/api/v1/withdrawals'),
           api('GET', '/api/v1/wallet/transfers'),
-          api('GET', '/api/v1/withdrawals/received').catch(() => []),
         ]);
         wallets.value = Array.isArray(ws) ? ws : [];
         allConversions.value = Array.isArray(convs) ? convs : [];
-        const sentWds = Array.isArray(wds) ? wds.map(w => ({ ...w, direction: 'out' })) : [];
-        const inboundWds = Array.isArray(recvWds) ? recvWds.map(w => ({ ...w, direction: 'in' })) : [];
-        allWithdrawals.value = [...sentWds, ...inboundWds].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        allWithdrawals.value = Array.isArray(wds) ? wds : [];
         allTransfers.value = Array.isArray(transfers) ? transfers : [];
-        pendingWithdrawals.value = sentWds.filter(w => ['pending', 'processing'].includes((w.status || '').toLowerCase()));
-        pendingConversions.value = allConversions.value.filter(c => ['pending', 'processing'].includes((c.status || '').toLowerCase()));
+
+        // Track pending withdrawals for polling
+        pendingWithdrawals.value = allWithdrawals.value.filter(w => ['pending', 'processing'].includes((w.status || '').toLowerCase()));
       } catch (e) {
         showToast(e.message, 'error');
       }
@@ -283,62 +281,32 @@ createApp({
     }
 
     async function copyWalletId(id) {
-      await copyToClipboard(id);
+      await navigator.clipboard.writeText(id);
       showToast('Wallet ID copied', 'success');
     }
 
     // ── CONVERT ──
-    function handleConvert() {
+    async function handleConvert() {
       convError.value = '';
       convResult.value = null;
-      convPending.value = {
-        from_currency: convFrom.value,
-        to_currency: convTo.value,
-        amount: parseFloat(convAmount.value),
-        preview: convPreview.value,
-        rate: currentRate.value,
-      };
-      showConvConfirmModal.value = true;
-    }
-
-    async function confirmConvert() {
-      convConfirmLoading.value = true;
+      convLoading.value = true;
       try {
         const res = await api('POST', '/api/v1/conversions', {
-          from_currency: convPending.value.from_currency,
-          to_currency: convPending.value.to_currency,
-          amount: convPending.value.amount,
+          from_currency: convFrom.value,
+          to_currency: convTo.value,
+          amount: parseFloat(convAmount.value),
           idempotency_key: genUID(),
         });
         convResult.value = res;
         convAmount.value = '';
-        showConvConfirmModal.value = false;
-        proofData.value = {
-          type: 'conversion',
-          id: res.id || genUID(),
-          from_amount: res.from_amount,
-          from_currency: res.from_currency,
-          to_amount: res.to_amount,
-          to_currency: res.to_currency,
-          rate: res.rate,
-          fee_amount: res.fee,
-          fee_currency: res.from_currency,
-          status: res.status,
-          created_at: res.created_at || new Date().toISOString(),
-        };
-        showProof.value = true;
-        if (['pending','processing'].includes((res.status || '').toLowerCase())) {
-          pendingConversions.value.push(res);
-        }
         showToast('Conversion successful', 'success');
+        // Refresh wallets inline — no need to navigate away
         await loadWallets();
         await loadOverview();
       } catch (err) {
         convError.value = err.message;
-        showConvConfirmModal.value = false;
-        showToast(err.message, 'error');
       }
-      convConfirmLoading.value = false;
+      convLoading.value = false;
     }
 
     // ── RECIPIENT LOOKUP ──
@@ -391,24 +359,6 @@ createApp({
           addRecentRecipient(wdRecipient.value.email, wdAccountNumber.value);
         }
 
-        // Proof of payment
-        proofData.value = {
-          type: 'transfer',
-          id: res.id || genUID(),
-          direction: 'out',
-          transfer_type: res.transfer_type || 'transfer',
-          to_email: wdRecipient.value?.email || '—',
-          to_account: wdAccountNumber.value,
-          recipient_id: res.recipient_id || null,
-          amount: res.amount || parseFloat(wdAmount.value),
-          net_amount: res.net_amount || parseFloat(wdAmount.value),
-          currency: res.currency || wdCurrency.value,
-          fee: res.fee ?? 0,
-          status: res.status || 'completed',
-          created_at: res.created_at || new Date().toISOString(),
-        };
-        showProof.value = true;
-
         showToast('Transfer sent!', 'success');
         wdAmount.value = '';
         wdAccountNumber.value = '';
@@ -419,7 +369,7 @@ createApp({
         await loadOverview();
 
         // Poll if pending
-        if (['pending','processing'].includes((res.status || '').toLowerCase())) {
+        if (res.status === 'pending' || res.status === 'processing') {
           pendingWithdrawals.value.push(res);
         }
       } catch (err) {
@@ -447,114 +397,27 @@ createApp({
     async function loadHistory() {
       historyLoading.value = true;
       try {
-        const [convs, wds, transfers, recvWds] = await Promise.all([
+        const [convs, wds, transfers] = await Promise.all([
           api('GET', '/api/v1/conversions'),
           api('GET', '/api/v1/withdrawals'),
           api('GET', '/api/v1/wallet/transfers'),
-          api('GET', '/api/v1/withdrawals/received').catch(() => []),
         ]);
         allConversions.value = Array.isArray(convs) ? convs : [];
-        const sentWds = Array.isArray(wds) ? wds.map(w => ({ ...w, direction: 'out' })) : [];
-        const inboundWds = Array.isArray(recvWds) ? recvWds.map(w => ({ ...w, direction: 'in' })) : [];
-        allWithdrawals.value = [...sentWds, ...inboundWds].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        allWithdrawals.value = Array.isArray(wds) ? wds : [];
         allTransfers.value = Array.isArray(transfers) ? transfers : [];
       } catch (e) { showToast(e.message, 'error'); }
       historyLoading.value = false;
     }
 
-    // ── OPEN PROOF FROM HISTORY ROW ──
-    function openProofFromRow(item) {
-      if (item._type === 'conversion') {
-        proofData.value = {
-          type: 'conversion',
-          id: item.id || '—',
-          from_amount: item.from_amount,
-          from_currency: item.from_currency,
-          to_amount: item.to_amount,
-          to_currency: item.to_currency,
-          rate: item.rate,
-          fee_amount: item.fee,
-          fee_currency: item.from_currency,
-          status: item.status,
-          created_at: item.created_at,
-        };
-      } else {
-        // withdrawal or transfer — WithdrawalResponse has: id, currency, amount, fee,
-        // net_amount, recipient_id, transfer_type, status, created_at, direction (frontend-added)
-        const isReceived = item.direction === 'in';
-        proofData.value = {
-          type: 'transfer',
-          id: item.id || '—',
-          direction: isReceived ? 'in' : 'out',
-          transfer_type: item.transfer_type || 'transfer',
-          // recipient info not stored on the record — show recipient_id as fallback
-          to_email: item.to_email || '—',
-          to_account: item.to_account_number || '—',
-          recipient_id: item.recipient_id || null,
-          amount: item.amount,
-          net_amount: item.net_amount,
-          currency: item.currency,
-          fee: item.fee,
-          status: item.status || 'completed',
-          created_at: item.created_at,
-        };
-      }
-      showProof.value = true;
-    }
-
-    // ── PROOF OF PAYMENT HELPERS ──
-    async function copyProofRef() {
-      if (proofData.value?.id) {
-        await copyToClipboard(proofData.value.id);
-        showToast('Reference copied', 'success');
-      }
-    }
-
-    function viewProofInHistory() {
-      showProof.value = false;
-      proofData.value = null;
-      navigate('history');
-    }
-
-    function dismissProof() {
-      showProof.value = false;
-      proofData.value = null;
-    }
-
-    function fmtProofDate(iso) {
-      if (!iso) return '—';
-      const d = new Date(iso);
-      return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-        + ' · '
-        + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    }
-
     // ── COPY ACCOUNT NUMBER ──
     async function copyAccountNumber() {
-      const val = myAccountNumber.value;
-      if (!val) { showToast('Account number not loaded yet', 'error'); return; }
-      try {
-        await copyToClipboard(val);
+      if (myAccountNumber.value && myAccountNumber.value !== '—') {
+        await navigator.clipboard.writeText(myAccountNumber.value);
         showToast('Account number copied', 'success');
-      } catch {
-        // Fallback for non-HTTPS or permission denied
-        try {
-          const ta = document.createElement('textarea');
-          ta.value = val;
-          ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
-          document.body.appendChild(ta);
-          ta.focus(); ta.select();
-          document.execCommand('copy');
-          document.body.removeChild(ta);
-          showToast('Account number copied', 'success');
-        } catch {
-          showToast('Copy failed — please copy manually: ' + val, 'error');
-        }
       }
     }
 
-
-// ── POLLING for pending withdrawals + conversions ──
+    // ── POLLING for pending withdrawals + conversions ──
     let refreshTick = 0;
     function startPolling() {
       pollInterval = setInterval(async () => {
@@ -575,7 +438,7 @@ createApp({
             let anyUpdated = false;
             if (hasPendingWds) {
               pendingWithdrawals.value = pendingWithdrawals.value.filter(pw => {
-                const updated = sentWds.find(w => w.id === pw.id);
+                const updated = freshAll.find(w => w.id === pw.id);
                 if (updated && !['pending', 'processing'].includes((updated.status || '').toLowerCase())) {
                   const st = (updated.status || '').toLowerCase();
                   showToast(`Transfer ${st}: ${pw.amount} ${pw.currency}`, st === 'completed' ? 'success' : 'error');
@@ -589,7 +452,8 @@ createApp({
               allWithdrawals.value = freshAll;
               if (anyUpdated) await loadWallets();
             }
-            pendingWithdrawals.value = sentWds.filter(w => ['pending', 'processing'].includes((w.status || '').toLowerCase()));
+            // reseed from ALL withdrawals (sent + received)
+            pendingWithdrawals.value = freshAll.filter(w => ['pending', 'processing'].includes((w.status || '').toLowerCase()));
           }
 
           if (hasPendingConvs || doFullRefresh) {
@@ -632,7 +496,7 @@ createApp({
         sseSource.addEventListener('balance_update', async () => { await loadWallets(); });
         sseSource.addEventListener('withdrawal_update', async (e) => {
           const data = JSON.parse(e.data);
-          const _st = (data.status||'').toLowerCase(); showToast(`Withdrawal ${_st}`, _st === 'completed' ? 'success' : 'error');
+          showToast(`Withdrawal ${data.status}`, data.status === 'completed' ? 'success' : 'error');
           await loadOverview();
         });
       } catch {}
@@ -642,39 +506,9 @@ createApp({
       if (sseSource) { sseSource.close(); sseSource = null; sseConnected.value = false; }
     }
 
-    // ── SYNC PROOF MODAL STATUS WHEN POLLING UPDATES ──
-    watch([allConversions, allWithdrawals], () => {
-      if (!showProof.value || !proofData.value?.id) return;
-      const id = String(proofData.value.id).trim();
-      if (proofData.value.type === 'conversion') {
-        const updated = allConversions.value.find(c => String(c.id).trim() === id);
-        if (updated && updated.status !== proofData.value.status) {
-          proofData.value = { ...proofData.value, status: updated.status };
-        }
-      } else {
-        const updated = allWithdrawals.value.find(w => String(w.id).trim() === id);
-        if (updated && updated.status !== proofData.value.status) {
-          proofData.value = { ...proofData.value, status: updated.status };
-        }
-      }
-    }, { deep: true });
-
     // ── LIFECYCLE ──
-    onMounted(async () => {
+    onMounted(() => {
       if (token.value) enterDashboard();
-      try {
-        const res = await fetch('/api/v1/envinfo');
-        if (res.ok) {
-          const data = await res.json();
-          envInfo.value = {
-            pod_name: data.pod_name ?? 'unknown',
-            node_name: data.node_name ?? 'unknown',
-            cluster_name: data.cluster_name ?? 'unknown',
-            aws_region: data.aws_region ?? 'unknown',
-            aws_az: data.aws_az ?? 'unknown',
-          };
-        }
-      } catch {}
     });
 
     onUnmounted(() => {
@@ -690,13 +524,11 @@ createApp({
 
     function txStatusClass(status) {
       const map = { completed:'badge-success', pending:'badge-pending', failed:'badge-failed', processing:'badge-processing' };
-      return map[(status || '').toLowerCase()] || 'badge-pending';
+      return map[status] || 'badge-pending';
     }
 
     function txStatusLabel(status) {
-      if (!status) return 'Pending';
-      const s = status.toLowerCase();
-      return s.charAt(0).toUpperCase() + s.slice(1);
+      return status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Pending';
     }
 
     // Env info bar: detect wrapping
@@ -734,12 +566,10 @@ createApp({
       wallets, walletsLoading, loadWallets, copyWalletId, walletClass, curSym, fmt,
       // convert
       convFrom, convTo, convAmount, convLoading, convError, convResult, convPreview, fromWalletBalance, handleConvert,
-      convPending, showConvConfirmModal, convConfirmLoading, confirmConvert,
       // withdraw
       wdAccountNumber, wdCurrency, wdAmount, wdLoading, wdError, wdResult,
       wdRecipient, wdRecipientLoading, onAccountInput, myAccountNumber, copyAccountNumber,
       wdWalletBalance, initiateWithdraw, confirmWithdraw, showConfirmModal, confirmLoading,
-      showProof, proofData, copyProofRef, viewProofInHistory, dismissProof, fmtProofDate, openProofFromRow,
       recentRecipients, fillRecipient,
       // history
       historyFilter, historyLoading, filteredHistory, loadHistory,
@@ -760,27 +590,7 @@ createApp({
     <div v-for="t in toasts" :key="t.id" :class="['toast','toast-'+t.type]">{{ t.msg }}</div>
   </div>
 
-  <!-- ══ CONVERSION CONFIRM MODAL ══ -->
-  <div v-if="showConvConfirmModal" class="modal-overlay" @click.self="showConvConfirmModal=false">
-    <div class="modal">
-      <div class="modal-title">Confirm Conversion</div>
-      <div class="modal-sub">Please review the exchange details. This action cannot be undone.</div>
-      <div class="modal-detail">
-        <div class="modal-row"><span class="modal-row-label">From</span><span class="modal-row-val">{{ fmt(convPending?.amount, convPending?.from_currency) }} {{ convPending?.from_currency }}</span></div>
-        <div class="modal-row"><span class="modal-row-label">To (est.)</span><span class="modal-row-val" style="color:var(--primary)">{{ convPending?.preview || '—' }}</span></div>
-        <div class="modal-row"><span class="modal-row-label">Rate</span><span class="modal-row-val" style="font-family:var(--mono);font-size:0.8rem">1 {{ convPending?.from_currency }} = {{ convPending?.rate ? parseFloat(convPending.rate).toLocaleString('en-US',{maximumFractionDigits:6}) : '—' }} {{ convPending?.to_currency }}</span></div>
-        <div class="modal-row"><span class="modal-row-label">Fee</span><span class="modal-row-val">0.30%</span></div>
-      </div>
-      <div class="modal-actions">
-        <button class="modal-cancel" @click="showConvConfirmModal=false">Cancel</button>
-        <button class="btn-primary" @click="confirmConvert" :disabled="convConfirmLoading">
-          {{ convConfirmLoading ? 'Processing...' : 'Confirm Conversion' }}
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══ TRANSFER CONFIRM MODAL ══ -->
+  <!-- ══ CONFIRM MODAL ══ -->
   <div v-if="showConfirmModal" class="modal-overlay" @click.self="showConfirmModal=false">
     <div class="modal">
       <div class="modal-title">Confirm Transfer</div>
@@ -788,7 +598,7 @@ createApp({
       <div class="modal-detail">
         <div class="modal-row"><span class="modal-row-label">To</span><span class="modal-row-val">{{ wdRecipient?.email }}</span></div>
         <div class="modal-row"><span class="modal-row-label">Account</span><span class="modal-row-val" style="font-family:var(--mono)">{{ wdAccountNumber }}</span></div>
-        <div class="modal-row"><span class="modal-row-label">Amount</span><span class="modal-row-val" style="color:var(--primary)">{{ fmt(wdAmount, wdCurrency) }} {{ wdCurrency }}</span></div>
+        <div class="modal-row"><span class="modal-row-label">Amount</span><span class="modal-row-val" style="color:var(--primary)">{{ wdAmount }} {{ wdCurrency }}</span></div>
         <div class="modal-row"><span class="modal-row-label">Fee</span><span class="modal-row-val">Free</span></div>
       </div>
       <div class="modal-actions">
@@ -800,65 +610,7 @@ createApp({
     </div>
   </div>
 
-  <!-- ══ PROOF OF PAYMENT MODAL ══ -->
-  <div v-if="showProof && proofData" class="modal-overlay" @click.self="dismissProof">
-    <div class="modal proof-modal">
-      <div class="proof-header">
-        <div class="proof-check" :style="['pending','processing'].includes((proofData.status||'').toLowerCase()) ? 'background:var(--amber-bg);border-color:rgba(246,173,85,0.35);color:var(--amber)' : ''">
-          {{ ['pending','processing'].includes((proofData.status||'').toLowerCase()) ? '⏳' : '&#10003;' }}
-        </div>
-        <div class="proof-title">
-          <template v-if="proofData.type === 'conversion'">
-            {{ ['pending','processing'].includes((proofData.status||'').toLowerCase()) ? 'Conversion Pending' : 'Conversion Complete' }}
-          </template>
-          <template v-else>
-            {{ ['pending','processing'].includes((proofData.status||'').toLowerCase()) ? 'Transfer Pending' : (proofData.direction === 'in' ? 'Transfer Received' : 'Transfer Sent') }}
-          </template>
-        </div>
-        <div class="proof-sub">
-          <template v-if="['pending','processing'].includes((proofData.status||'').toLowerCase())">
-            This transaction is still being processed
-          </template>
-          <template v-else-if="proofData.type === 'conversion'">Your wallets have been updated</template>
-          <template v-else>{{ proofData.direction === 'in' ? 'Funds received into your wallet' : 'Your funds have been sent successfully' }}</template>
-        </div>
-      </div>
-      <template v-if="proofData.type === 'transfer'">
-        <div class="proof-amount">
-          <span :style="proofData.direction==='in' ? 'color:var(--primary)' : 'color:#ef4444'">{{ proofData.direction==='in' ? '+' : '−' }}</span>{{ fmt(proofData.net_amount ?? proofData.amount, proofData.currency) }} <span class="proof-currency">{{ proofData.currency }}</span>
-        </div>
-        <div class="modal-detail">
-          <div class="modal-row"><span class="modal-row-label">Direction</span><span class="modal-row-val">{{ proofData.direction==='in' ? 'Received' : 'Sent' }}</span></div>
-          <div v-if="proofData.direction==='out'" class="modal-row"><span class="modal-row-label">Recipient</span><span class="modal-row-val">{{ proofData.to_email !== '—' ? proofData.to_email : (proofData.recipient_id || '—') }}</span></div>
-          <div v-if="proofData.direction==='out' && proofData.to_account !== '—'" class="modal-row"><span class="modal-row-label">Account</span><span class="modal-row-val" style="font-family:var(--mono);font-size:0.8rem">{{ proofData.to_account }}</span></div>
-          <div class="modal-row"><span class="modal-row-label">Amount</span><span class="modal-row-val">{{ fmt(proofData.amount, proofData.currency) }} {{ proofData.currency }}</span></div>
-          <div class="modal-row"><span class="modal-row-label">Fee</span><span class="modal-row-val">{{ proofData.fee && parseFloat(proofData.fee) > 0 ? fmt(proofData.fee, proofData.currency) + ' ' + proofData.currency : 'Free' }}</span></div>
-          <div class="modal-row"><span class="modal-row-label">Net amount</span><span class="modal-row-val" style="color:var(--primary)">{{ fmt(proofData.net_amount ?? proofData.amount, proofData.currency) }} {{ proofData.currency }}</span></div>
-          <div class="modal-row"><span class="modal-row-label">Status</span><span :class="['badge', txStatusClass(proofData.status)]">{{ txStatusLabel(proofData.status) }}</span></div>
-          <div class="modal-row"><span class="modal-row-label">Date &amp; Time</span><span class="modal-row-val" style="font-family:var(--mono);font-size:0.75rem">{{ fmtProofDate(proofData.created_at) }}</span></div>
-          <div class="modal-row"><span class="modal-row-label">Reference</span><span class="modal-row-val proof-ref" @click="copyProofRef" title="Click to copy">{{ proofData.id }}</span></div>
-        </div>
-      </template>
-      <template v-else>
-        <div class="proof-amount">+{{ fmt(proofData.to_amount, proofData.to_currency) }} <span class="proof-currency">{{ proofData.to_currency }}</span></div>
-        <div class="modal-detail">
-          <div class="modal-row"><span class="modal-row-label">From</span><span class="modal-row-val">{{ fmt(proofData.from_amount, proofData.from_currency) }} {{ proofData.from_currency }}</span></div>
-          <div class="modal-row"><span class="modal-row-label">To</span><span class="modal-row-val" style="color:var(--primary)">{{ fmt(proofData.to_amount, proofData.to_currency) }} {{ proofData.to_currency }}</span></div>
-          <div class="modal-row"><span class="modal-row-label">Rate</span><span class="modal-row-val" style="font-family:var(--mono);font-size:0.78rem">1 {{ proofData.from_currency }} = {{ proofData.rate ? parseFloat(proofData.rate).toLocaleString('en-US',{maximumFractionDigits:6}) : '—' }} {{ proofData.to_currency }}</span></div>
-          <div class="modal-row"><span class="modal-row-label">Fee</span><span class="modal-row-val">{{ proofData.fee_amount ? fmt(proofData.fee_amount, proofData.fee_currency) + ' ' + proofData.fee_currency : '—' }}</span></div>
-          <div class="modal-row"><span class="modal-row-label">Status</span><span :class="['badge', txStatusClass(proofData.status)]">{{ txStatusLabel(proofData.status) }}</span></div>
-          <div class="modal-row"><span class="modal-row-label">Date &amp; Time</span><span class="modal-row-val" style="font-family:var(--mono);font-size:0.75rem">{{ fmtProofDate(proofData.created_at) }}</span></div>
-          <div class="modal-row"><span class="modal-row-label">Reference</span><span class="modal-row-val proof-ref" @click="copyProofRef" title="Click to copy">{{ proofData.id }}</span></div>
-        </div>
-      </template>
-      <div class="modal-actions" style="margin-top:0.5rem">
-        <button class="modal-cancel" @click="dismissProof">Close</button>
-        <button class="btn-primary" @click="viewProofInHistory" style="margin-top:0">View in History</button>
-      </div>
-    </div>
-  </div>
-
-    <!-- ══ AUTH SCREEN ══ -->
+  <!-- ══ AUTH SCREEN ══ -->
   <div id="auth-screen" :class="{visible: !isLoggedIn}">
     <!-- Top bar -->
     <div style="background:var(--bg2);border-bottom:1px solid var(--border);height:56px;display:flex;align-items:center;padding:0 2rem;justify-content:space-between;">
@@ -949,6 +701,7 @@ createApp({
         </div>
       </div>
     </div>
+  </div>
 
 <!-- ══ DASHBOARD ══ -->
   <div id="dashboard-screen" :class="{visible: isLoggedIn}">
@@ -977,6 +730,8 @@ createApp({
       </div>
     </header>
 
+
+    <div class="subnav">
 
     <div class="subnav">
       <span class="subnav-home" @click="navigate('overview')">Home</span>
@@ -1018,7 +773,7 @@ createApp({
             <table v-else>
               <thead><tr><th>Type</th><th>Details</th><th>Amount</th><th>Status</th></tr></thead>
               <tbody>
-                <tr v-for="item in recentActivity" :key="item.id" class="tx-row" @click="openProofFromRow(item)" title="View receipt">
+                <tr v-for="item in recentActivity" :key="item.id">
                   <td>
                     <span v-if="item._type==='conversion'" class="badge badge-type">Conversion</span>
                     <span v-else-if="item._type==='transfer'" class="badge badge-type" style="background:rgba(139,92,246,0.15);color:#a78bfa;">Transfer</span>
@@ -1035,7 +790,8 @@ createApp({
                     <span v-else>{{ fmt(item.amount, item.currency) }} {{ item.currency }}</span>
                   </td>
                   <td>
-                    <span :class="['badge', txStatusClass(item.status)]">{{ txStatusLabel(item.status) }}</span>
+                    <span v-if="item._type==='conversion'" class="badge badge-success">Completed</span>
+                    <span v-else :class="['badge', txStatusClass(item.status)]">{{ txStatusLabel(item.status) }}</span>
                   </td>
                 </tr>
               </tbody>
@@ -1054,8 +810,9 @@ createApp({
             <div class="wallet-watermark">{{ w.currency }}</div>
             <div class="wallet-currency">{{ w.currency }}<span style="font-weight:300;font-size:0.9em">{{ curSym(w.currency) }}</span></div>
             <div class="wallet-balance">{{ curSym(w.currency) }}{{ parseFloat(w.balance||0).toLocaleString('en-US',{maximumFractionDigits:8}) }}</div>
-            <div class="wallet-id">
+            <div class="wallet-id" @click="copyWalletId(w.id)" title="Click to copy">
               Wallet {{ w.id || '—' }}
+              <span class="wallet-copy-hint">📋 copy</span>
             </div>
           </div>
         </div>
@@ -1075,19 +832,15 @@ createApp({
           </div>
           <div class="rate-display"><div class="rate-dot"></div><span>{{ currentRateText }}</span></div>
           <form @submit.prevent="handleConvert">
-            <div class="form-row" style="align-items:flex-end">
-              <div class="form-group" style="display:flex;flex-direction:column;">
+            <div class="form-row">
+              <div class="form-group">
                 <label class="form-label">From Currency</label>
-                <div style="font-family:var(--mono);font-size:0.68rem;color:var(--ink-soft);margin-bottom:4px;min-height:1.1em;">
-                  <span v-if="fromWalletBalance">Balance: {{ fromWalletBalance }}</span>
-                </div>
+                <div v-if="fromWalletBalance" style="font-family:var(--mono);font-size:0.68rem;color:var(--ink-soft);margin-bottom:4px;">Balance: {{ fromWalletBalance }}</div>
                 <select class="select-input" v-model="convFrom">
                   <option value="USD">USD</option><option value="EUR">EUR</option><option value="GBP">GBP</option><option value="BTC">BTC</option><option value="ETH">ETH</option>
                 </select>
               </div>
-              <div class="form-group" style="display:flex;flex-direction:column;">
-                <label class="form-label">To Currency</label>
-                <div style="min-height:1.1em;margin-bottom:4px;"></div>
+              <div class="form-group"><label class="form-label">To Currency</label>
                 <select class="select-input" v-model="convTo">
                   <option value="EUR">EUR</option><option value="USD">USD</option><option value="GBP">GBP</option><option value="BTC">BTC</option><option value="ETH">ETH</option>
                 </select>
@@ -1174,9 +927,9 @@ createApp({
           <div v-if="historyLoading" class="loading"><div class="spinner"></div>Loading...</div>
           <div v-else-if="!filteredHistory.length" class="empty-state">No transactions found</div>
           <table v-else>
-            <thead><tr><th>Type</th><th>Details</th><th>Amount</th><th>Status</th><th>Date</th><th></th></tr></thead>
+            <thead><tr><th>Type</th><th>Details</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
             <tbody>
-              <tr v-for="item in filteredHistory" :key="item.id + item._type" class="tx-row" @click="openProofFromRow(item)" title="View receipt">
+              <tr v-for="item in filteredHistory" :key="item.id + item._type">
                 <td>
                   <span v-if="item._type==='conversion'" class="badge badge-type">Conversion</span>
                   <span v-else-if="item._type==='transfer'" class="badge badge-type" style="background:rgba(139,92,246,0.15);color:#a78bfa;">Transfer</span>
@@ -1188,16 +941,18 @@ createApp({
                   <span v-else>{{ item.currency }} withdrawal</span>
                 </td>
                 <td :style="item._type==='transfer' ? (item.direction==='out' ? 'color:#ef4444;font-weight:600' : 'color:var(--primary);font-weight:600') : 'color:var(--primary);font-weight:600'">
-                  <span v-if="item._type==='transfer'">{{ item.direction==='out' ? '−' : '+' }}{{ fmt(item.amount, item.currency) }} {{ item.currency }}</span>
-                  <span v-else-if="item._type==='conversion'">{{ fmt(item.from_amount||item.amount, item.from_currency) }} {{ item.from_currency }}</span>
-                  <span v-else>{{ fmt(item.amount, item.currency) }} {{ item.currency }}</span>
+                  <span v-if="item._type==='transfer'">{{ item.direction==='out' ? '−' : '+' }}{{ item.amount }} {{ item.currency }}</span>
+                  <span v-else-if="item._type==='conversion'">{{ item.from_amount||item.amount }} {{ item.from_currency }}</span>
+                  <span v-else>{{ item.amount }} {{ item.currency }}</span>
                 </td>
                 <td>
-                  <span :class="['badge', txStatusClass(item.status)]">{{ txStatusLabel(item.status) }}</span>
-                  <span v-if="['pending','processing'].includes((item.status||'').toLowerCase())" class="pending-spinner" style="margin-left:6px;display:inline-block;"></span>
+                  <span v-if="item._type==='conversion'" class="badge badge-success">Completed</span>
+                  <template v-else>
+                    <span :class="['badge', txStatusClass(item.status)]">{{ txStatusLabel(item.status) }}</span>
+                    <span v-if="['pending','processing'].includes(item.status)" class="pending-spinner" style="margin-left:6px;display:inline-block;"></span>
+                  </template>
                 </td>
                 <td style="font-family:var(--mono);font-size:0.75rem;color:var(--ink-soft)">{{ date(item.created_at) }}</td>
-                <td class="tx-receipt-hint">&#x1F9FE;</td>
               </tr>
             </tbody>
           </table>
