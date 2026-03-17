@@ -2,8 +2,9 @@ import asyncio
 import json
 import httpx
 import redis.asyncio as aioredis
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from fastapi.responses import StreamingResponse
+from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from app.schemas.wallet import WalletResponse, InitWalletsRequest
@@ -57,7 +58,15 @@ async def internal_balance(user_id: str, currency: str, db: AsyncSession = Depen
 
 
 @router.get("/api/v1/events")
-async def sse_events(request: Request, user_id: str = Depends(get_current_user_id)):
+async def sse_events(request: Request, token: str = Query(...)):
+    try:
+        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.ALGORITHM])
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
     async def stream():
         redis = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
         pubsub = redis.pubsub()
