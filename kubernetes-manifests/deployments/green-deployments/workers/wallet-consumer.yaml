@@ -32,7 +32,7 @@ spec:
             topologyKey: kubernetes.io/hostname
       containers:
       - name: wallet-consumer
-        image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/wallet-service:1.0.17
+        image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/wallet-service:1.0.18
         command: ["python", "-m", "app.services.consumer"]
         envFrom:
           - configMapRef:
