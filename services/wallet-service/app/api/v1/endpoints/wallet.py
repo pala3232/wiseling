@@ -63,8 +63,8 @@ async def sse_events(request: Request, user_id: str = Depends(get_current_user_i
         pubsub = redis.pubsub()
         await pubsub.subscribe(f"user:{user_id}")
         try:
-            # Send initial ping so the connection is confirmed open
             yield "event: ping\ndata: {}\n\n"
+            tick = 0
             while True:
                 if await request.is_disconnected():
                     break
@@ -74,6 +74,9 @@ async def sse_events(request: Request, user_id: str = Depends(get_current_user_i
                     event = payload.get("event", "balance_update")
                     data = json.dumps(payload.get("data", {}))
                     yield f"event: {event}\ndata: {data}\n\n"
+                tick += 1
+                if tick % 300 == 0:
+                    yield "event: ping\ndata: {}\n\n"
                 await asyncio.sleep(0.1)
         finally:
             await pubsub.unsubscribe(f"user:{user_id}")

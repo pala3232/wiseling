@@ -232,12 +232,13 @@ createApp({
 
     // ── DASHBOARD INIT ──
     async function enterDashboard() {
-      setTimeout(() => window.scrollTo({ top: 0, behavior: 'instant' }), 0);
-      await loadRates();
-      await loadOverview();
-      loadMyAccountNumber();
-      startPolling();
-    }
+    setTimeout(() => window.scrollTo({ top: 0, behavior: 'instant' }), 0);
+    await loadRates();
+    await loadOverview();
+    loadMyAccountNumber();
+    startPolling();
+    startSSE();
+}
 
     async function loadMyAccountNumber() {
       try {
@@ -610,7 +611,7 @@ createApp({
             pendingConversions.value = fresh.filter(c => ['pending', 'processing'].includes((c.status || '').toLowerCase()));
           }
         } catch {}
-      }, 5000);
+      }, 60000);
     }
 
     function stopPolling() {
@@ -628,7 +629,13 @@ createApp({
         sseSource.addEventListener('withdrawal_update', async (e) => {
           const data = JSON.parse(e.data);
           const st = (data.status||'').toLowerCase();
-          showToast(`Withdrawal ${st}`, st === 'completed' ? 'success' : 'error');
+          showToast(`Transfer ${st}`, st === 'completed' ? 'success' : 'error');
+          await loadOverview();
+        });
+        sseSource.addEventListener('conversion_update', async (e) => {
+          const data = JSON.parse(e.data);
+          const st = (data.status||'').toLowerCase();
+          showToast(`Conversion ${st}`, st === 'completed' ? 'success' : 'error');
           await loadOverview();
         });
       } catch {}

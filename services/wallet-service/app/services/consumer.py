@@ -52,6 +52,10 @@ async def handle_event(event_type: str, payload: dict):
                 "reason": "conversion",
                 "reference_id": payload["conversion_id"],
             })
+            await publish(redis, payload["user_id"], "conversion_update", {
+                "id": payload["conversion_id"],
+                "status": "completed",
+            })
             print(f"[wallet] Settled conversion {payload['conversion_id']}")
 
         elif event_type == "withdrawal.requested":
@@ -62,6 +66,10 @@ async def handle_event(event_type: str, payload: dict):
             await publish(redis, payload["user_id"], "balance_update", {
                 "reason": "withdrawal",
                 "reference_id": payload["withdrawal_id"],
+            })
+            await publish(redis, payload["user_id"], "withdrawal_update", {
+                "id": payload["withdrawal_id"],
+                "status": "completed",
             })
             print(f"[wallet] Debited withdrawal {payload['withdrawal_id']}")
 
@@ -85,9 +93,17 @@ async def handle_event(event_type: str, payload: dict):
                 "reason": "transfer_out",
                 "reference_id": payload["transfer_id"],
             })
+            await publish(redis, payload["sender_id"], "withdrawal_update", {
+                "id": payload["transfer_id"],
+                "status": "completed",
+            })
             await publish(redis, payload["recipient_id"], "balance_update", {
                 "reason": "transfer_in",
                 "reference_id": payload["transfer_id"],
+            })
+            await publish(redis, payload["recipient_id"], "withdrawal_update", {
+                "id": payload["transfer_id"],
+                "status": "completed",
             })
             print(f"[wallet] Settled transfer {payload['transfer_id']}")
     await redis.aclose()
