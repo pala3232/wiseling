@@ -629,15 +629,19 @@ createApp({
     // ── SYNC PROOF MODAL STATUS WHEN POLLING UPDATES ──
     watch([allConversions, allWithdrawals], () => {
       if (!showProof.value || !proofData.value?.id) return;
-      const id = proofData.value.id;
+      const id = String(proofData.value.id).trim();
       if (proofData.value.type === 'conversion') {
-        const updated = allConversions.value.find(c => c.id === id);
-        if (updated) proofData.value = { ...proofData.value, status: updated.status };
+        const updated = allConversions.value.find(c => String(c.id).trim() === id);
+        if (updated && updated.status !== proofData.value.status) {
+          proofData.value = { ...proofData.value, status: updated.status };
+        }
       } else {
-        const updated = allWithdrawals.value.find(w => w.id === id);
-        if (updated) proofData.value = { ...proofData.value, status: updated.status };
+        const updated = allWithdrawals.value.find(w => String(w.id).trim() === id);
+        if (updated && updated.status !== proofData.value.status) {
+          proofData.value = { ...proofData.value, status: updated.status };
+        }
       }
-    });
+    }, { deep: true });
 
     // ── LIFECYCLE ──
     onMounted(async () => {
@@ -1173,11 +1177,8 @@ createApp({
                   <span v-else>{{ fmt(item.amount, item.currency) }} {{ item.currency }}</span>
                 </td>
                 <td>
-                  <span v-if="item._type==='conversion'" class="badge badge-success">Completed</span>
-                  <template v-else>
-                    <span :class="['badge', txStatusClass(item.status)]">{{ txStatusLabel(item.status) }}</span>
-                    <span v-if="['pending','processing'].includes((item.status||'').toLowerCase())" class="pending-spinner" style="margin-left:6px;display:inline-block;"></span>
-                  </template>
+                  <span :class="['badge', txStatusClass(item.status)]">{{ txStatusLabel(item.status) }}</span>
+                  <span v-if="['pending','processing'].includes((item.status||'').toLowerCase())" class="pending-spinner" style="margin-left:6px;display:inline-block;"></span>
                 </td>
                 <td style="font-family:var(--mono);font-size:0.75rem;color:var(--ink-soft)">{{ date(item.created_at) }}</td>
                 <td class="tx-receipt-hint">&#x1F9FE;</td>

@@ -14,3 +14,4 @@ data:
   RDS_REPLICA_IDENTIFIER: ""
   AUTH_SERVICE_URL: http://auth-service:8000
   WITHDRAWAL_SERVICE_URL: http://withdrawal-service:8003
+  CONVERSION_SERVICE_URL: http://conversion-service:8002

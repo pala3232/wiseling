@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     # Auth service — used for account number lookup during transfers
     AUTH_SERVICE_URL: str = "http://auth-service:8000"
     WITHDRAWAL_SERVICE_URL: str = "http://withdrawal-service:8003"
+    CONVERSION_SERVICE_URL: str = "http://conversion-service:8002"
 
 
     # Run reconciler on startup (set to False in normal ops, True after failover)
