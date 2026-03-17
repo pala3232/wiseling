@@ -153,7 +153,42 @@ jobs:
             aws ec2 delete-network-interface --region ap-southeast-1 \
               --network-interface-id $ENI_ID || true
           done
+      - name: Cleanup NAT Gateways
+        continue-on-error: true
+        run: |
+          VPC_ID=$(aws ec2 describe-vpcs --region ap-southeast-1 \
+            --filters Name=tag:Name,Values=wiseling-vpc-sgp \
+            --query 'Vpcs[0].VpcId' --output text)
 
+          if [ -z "$VPC_ID" ] || [ "$VPC_ID" = "None" ]; then
+            echo "VPC not found, skipping NAT Gateway cleanup."
+            exit 0
+          fi
+
+          echo "Listing NAT Gateways in VPC $VPC_ID..."
+          NAT_GW_IDS=$(aws ec2 describe-nat-gateways --region ap-southeast-1 \
+            --filter Name=vpc-id,Values=$VPC_ID \
+            --query 'NatGateways[].NatGatewayId' --output text)
+
+          for NAT_GW_ID in $NAT_GW_IDS; do
+            echo "Deleting NAT Gateway $NAT_GW_ID"
+            aws ec2 delete-nat-gateway --region ap-southeast-1 --nat-gateway-id $NAT_GW_ID || true
+          done
+
+          # Wait for NAT Gateways to be deleted
+          for NAT_GW_ID in $NAT_GW_IDS; do
+            for i in $(seq 1 24); do
+              STATE=$(aws ec2 describe-nat-gateways --region ap-southeast-1 \
+                --nat-gateway-ids $NAT_GW_ID \
+                --query 'NatGateways[0].State' --output text 2>/dev/null || echo "deleted")
+              if [ "$STATE" = "deleted" ] || [ "$STATE" = "not-found" ]; then
+                echo "NAT Gateway $NAT_GW_ID deleted."
+                break
+              fi
+              echo "Still waiting for NAT Gateway $NAT_GW_ID to be deleted... ($i/24)"
+              sleep 10
+            done
+          done
       - name: Cleanup LB controller security groups
         continue-on-error: true
         run: |
