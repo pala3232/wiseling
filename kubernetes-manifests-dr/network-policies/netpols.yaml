@@ -46,6 +46,10 @@ spec:
         matchLabels:
           app: auth-service
   - from:
+    - podSelector:
+        matchLabels:
+          app: withdrawal-service
+  - from:
     - ipBlock:
         cidr: 10.0.0.0/16
 ---
@@ -100,3 +104,49 @@ spec:
   - from:
     - ipBlock:
         cidr: 10.0.0.0/16
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: redis-master-netpol
+  namespace: wiseling
+spec:
+  podSelector:
+    matchLabels:
+      app: redis-master
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: wallet-service
+  - from:
+    - podSelector:
+        matchLabels:
+          app: wallet-consumer
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: redis-replica-netpol
+  namespace: wiseling
+spec:
+  podSelector:
+    matchLabels:
+      app: redis-replica
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: redis-master
+  - from:
+    - podSelector:
+        matchLabels:
+          app: wallet-service
+  - from:
+    - podSelector:
+        matchLabels:
+          app: wallet-consumer
