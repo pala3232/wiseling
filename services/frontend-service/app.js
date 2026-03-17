@@ -2,8 +2,8 @@ const { createApp, ref, computed, onMounted, onUnmounted, watch } = Vue;
 
 // ── CONSTANTS ──────────────────────────────────────────────────────────────
 const API_BASE = window.API_BASE || '';
-const WALLET_CLS = { BTC:'btc', ETH:'eth', USD:'usd', EUR:'eur', GBP:'gbp' };
-const CUR_SYM = { USD:'$', EUR:'€', GBP:'£', BTC:'₿', ETH:'Ξ' };
+const WALLET_CLS = { USD:'usd', EUR:'eur', GBP:'gbp' };
+const CUR_SYM = { USD:'$', EUR:'€', GBP:'£' };
 const PAGE_NAMES = { overview:'Overview', wallets:'My Wallets', convert:'Convert', withdraw:'Send Money', history:'Transactions' };
 
 // ── HELPERS ─────────────────────────────────────────────────────────────────
@@ -17,7 +17,7 @@ function genUID() {
 function fmtAmount(amount, currency) {
   const sym = CUR_SYM[currency] || '';
   const val = parseFloat(amount || 0);
-  const decimals = ['BTC','ETH'].includes(currency) ? 8 : 2;
+  const decimals = 2;
   return sym + val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: decimals });
 }
 
@@ -116,8 +116,6 @@ createApp({
         if (w.currency === 'USD') total += parseFloat(w.balance || 0);
         else if (w.currency === 'EUR') total += parseFloat(w.balance || 0) * (ratesCache.value['EUR/USD'] || 1.08);
         else if (w.currency === 'GBP') total += parseFloat(w.balance || 0) * (ratesCache.value['GBP/USD'] || 1.27);
-        else if (w.currency === 'BTC') total += parseFloat(w.balance || 0) * (ratesCache.value['BTC/USD'] || 60000);
-        else if (w.currency === 'ETH') total += parseFloat(w.balance || 0) * (ratesCache.value['ETH/USD'] || 3000);
       });
       return '$' + total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     });
@@ -972,12 +970,12 @@ createApp({
                 <label class="form-label">From Currency</label>
                 <div v-if="fromWalletBalance" style="font-family:var(--mono);font-size:0.68rem;color:var(--ink-soft);margin-bottom:4px;">Balance: {{ fromWalletBalance }}</div>
                 <select class="select-input" v-model="convFrom">
-                  <option value="USD">USD</option><option value="EUR">EUR</option><option value="GBP">GBP</option><option value="BTC">BTC</option><option value="ETH">ETH</option>
+                  <option value="USD">USD</option><option value="EUR">EUR</option><option value="GBP">GBP</option>
                 </select>
               </div>
               <div class="form-group"><label class="form-label">To Currency</label>
                 <select class="select-input" v-model="convTo">
-                  <option value="EUR">EUR</option><option value="USD">USD</option><option value="GBP">GBP</option><option value="BTC">BTC</option><option value="ETH">ETH</option>
+                  <option value="EUR">EUR</option><option value="USD">USD</option><option value="GBP">GBP</option>
                 </select>
               </div>
             </div>
