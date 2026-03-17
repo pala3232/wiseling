@@ -160,8 +160,7 @@ createApp({
         rows.push(...allConversions.value.map(x => ({ ...x, _type: 'conversion' })));
       if (historyFilter.value === 'all' || historyFilter.value === 'withdrawals')
         rows.push(...allWithdrawals.value.map(x => ({ ...x, _type: 'withdrawal' })));
-      if (historyFilter.value === 'all' || historyFilter.value === 'transfers')
-        rows.push(...allTransfers.value.map(x => ({ ...x, _type: 'transfer' })));
+
       return rows.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     });
 
@@ -169,7 +168,6 @@ createApp({
       return [
         ...allConversions.value.map(c => ({ ...c, _type: 'conversion' })),
         ...allWithdrawals.value.map(w => ({ ...w, _type: 'withdrawal' })),
-        ...allTransfers.value.map(t => ({ ...t, _type: 'transfer' })),
       ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 6);
     });
 
@@ -268,11 +266,10 @@ createApp({
     async function loadOverview() {
       overviewLoading.value = true;
       try {
-        const [ws, convs, wds, transfers, recvWds] = await Promise.all([
+        const [ws, convs, wds, recvWds] = await Promise.all([
           api('GET', '/api/v1/wallet/balances'),
           api('GET', '/api/v1/conversions'),
           api('GET', '/api/v1/withdrawals'),
-          api('GET', '/api/v1/wallet/transfers'),
           api('GET', '/api/v1/withdrawals/received').catch(() => []),
         ]);
         wallets.value = Array.isArray(ws) ? ws : [];
@@ -281,7 +278,7 @@ createApp({
         const inboundWds = Array.isArray(recvWds) ? recvWds.map(w => ({ ...w, direction: 'in' })) : [];
         const freshAll   = [...sentWds, ...inboundWds].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         allWithdrawals.value = freshAll;
-        allTransfers.value = Array.isArray(transfers) ? transfers : [];
+        allTransfers.value = [];
         pendingWithdrawals.value = sentWds.filter(w => ['pending', 'processing'].includes((w.status || '').toLowerCase()));
         pendingConversions.value = allConversions.value.filter(c => ['pending', 'processing'].includes((c.status || '').toLowerCase()));
       } catch (e) {
@@ -461,17 +458,16 @@ createApp({
       }
       historyLoading.value = true;
       try {
-        const [convs, wds, transfers, recvWds] = await Promise.all([
+        const [convs, wds, recvWds] = await Promise.all([
           api('GET', '/api/v1/conversions'),
           api('GET', '/api/v1/withdrawals'),
-          api('GET', '/api/v1/wallet/transfers'),
           api('GET', '/api/v1/withdrawals/received').catch(() => []),
         ]);
         allConversions.value = Array.isArray(convs) ? convs : [];
         const sentWds    = Array.isArray(wds)     ? wds.map(w => ({ ...w, direction: 'out' })) : [];
         const inboundWds = Array.isArray(recvWds) ? recvWds.map(w => ({ ...w, direction: 'in' })) : [];
         allWithdrawals.value = [...sentWds, ...inboundWds].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-        allTransfers.value = Array.isArray(transfers) ? transfers : [];
+        allTransfers.value = [];
       } catch (e) { showToast(e.message, 'error'); }
       historyLoading.value = false;
     }
@@ -922,18 +918,15 @@ createApp({
                 <tr v-for="item in recentActivity" :key="item.id" class="tx-row" @click="openProofFromRow(item)" title="View receipt" style="cursor:pointer;">
                   <td>
                     <span v-if="item._type==='conversion'" class="badge badge-type">Conversion</span>
-                    <span v-else-if="item._type==='transfer'" class="badge badge-type" style="background:rgba(139,92,246,0.15);color:#a78bfa;">Transfer</span>
                     <span v-else class="badge badge-type">Withdrawal</span>
                   </td>
                   <td class="strong">
                     <span v-if="item._type==='conversion'">{{ item.from_currency }} → {{ item.to_currency }}</span>
-                    <span v-else-if="item._type==='transfer'">{{ item.direction==='out' ? 'Sent' : 'Received' }} {{ item.currency }}</span>
-                    <span v-else>{{ item.currency }} withdrawal</span>
+                    <span v-else>{{ item.direction==='in' ? 'Received' : 'Sent' }} {{ item.currency }}</span>
                   </td>
-                  <td :style="item._type==='transfer' ? (item.direction==='out' ? 'color:#ef4444;font-weight:600' : 'color:var(--primary);font-weight:600') : 'color:var(--primary);font-weight:600'">
-                    <span v-if="item._type==='transfer'">{{ item.direction==='out' ? '−' : '+' }}{{ fmt(item.amount, item.currency) }} {{ item.currency }}</span>
-                    <span v-else-if="item._type==='conversion'">{{ fmt(item.from_amount||item.amount, item.from_currency) }} {{ item.from_currency }}</span>
-                    <span v-else>{{ fmt(item.amount, item.currency) }} {{ item.currency }}</span>
+                  <td :style="item._type==='withdrawal' && item.direction==='in' ? 'color:var(--primary);font-weight:600' : item._type==='withdrawal' && item.direction==='out' ? 'color:#ef4444;font-weight:600' : 'color:var(--primary);font-weight:600'">
+                    <span v-if="item._type==='withdrawal'">{{ item.direction==='in' ? '+' : '−' }}{{ fmt(item.amount, item.currency) }} {{ item.currency }}</span>
+                    <span v-else>{{ fmt(item.from_amount||item.amount, item.from_currency) }} {{ item.from_currency }}</span>
                   </td>
                   <td><span :class="['badge', txStatusClass(item.status)]">{{ txStatusLabel(item.status) }}</span></td>
                 </tr>
@@ -1058,7 +1051,7 @@ createApp({
       <div class="page" :class="{active:currentPage==='history'}">
         <div class="page-header"><div><div class="page-title">Transactions</div><div class="page-sub">Your complete transaction history</div></div></div>
         <div class="filter-tabs">
-          <button v-for="f in ['all','conversions','withdrawals','transfers']" :key="f" class="filter-btn" :class="{active:historyFilter===f}" @click="historyFilter=f">{{ f }}</button>
+          <button v-for="f in ['all','conversions','withdrawals']" :key="f" class="filter-btn" :class="{active:historyFilter===f}" @click="historyFilter=f">{{ f }}</button>
         </div>
         <div class="table-card">
           <div v-if="historyLoading" class="loading"><div class="spinner"></div>Loading...</div>
@@ -1069,18 +1062,15 @@ createApp({
               <tr v-for="item in filteredHistory" :key="item.id + item._type" class="tx-row" @click="openProofFromRow(item)" style="cursor:pointer;">
                 <td>
                   <span v-if="item._type==='conversion'" class="badge badge-type">Conversion</span>
-                  <span v-else-if="item._type==='transfer'" class="badge badge-type" style="background:rgba(139,92,246,0.15);color:#a78bfa;">Transfer</span>
                   <span v-else class="badge badge-type">Withdrawal</span>
                 </td>
                 <td class="strong">
                   <span v-if="item._type==='conversion'">{{ item.from_currency }} → {{ item.to_currency }}</span>
-                  <span v-else-if="item._type==='transfer'">{{ item.direction==='out' ? 'Sent' : 'Received' }} {{ item.currency }}</span>
-                  <span v-else>{{ item.currency }} withdrawal</span>
+                  <span v-else>{{ item.direction==='in' ? 'Received' : 'Sent' }} {{ item.currency }}</span>
                 </td>
-                <td :style="item._type==='transfer' ? (item.direction==='out' ? 'color:#ef4444;font-weight:600' : 'color:var(--primary);font-weight:600') : 'color:var(--primary);font-weight:600'">
-                  <span v-if="item._type==='transfer'">{{ item.direction==='out' ? '−' : '+' }}{{ fmt(item.amount, item.currency) }} {{ item.currency }}</span>
-                  <span v-else-if="item._type==='conversion'">{{ fmt(item.from_amount||item.amount, item.from_currency) }} {{ item.from_currency }}</span>
-                  <span v-else>{{ fmt(item.amount, item.currency) }} {{ item.currency }}</span>
+                <td :style="item._type==='withdrawal' && item.direction==='in' ? 'color:var(--primary);font-weight:600' : item._type==='withdrawal' && item.direction==='out' ? 'color:#ef4444;font-weight:600' : 'color:var(--primary);font-weight:600'">
+                  <span v-if="item._type==='withdrawal'">{{ item.direction==='in' ? '+' : '−' }}{{ fmt(item.amount, item.currency) }} {{ item.currency }}</span>
+                  <span v-else>{{ fmt(item.from_amount||item.amount, item.from_currency) }} {{ item.from_currency }}</span>
                 </td>
                 <td>
                   <span :class="['badge', txStatusClass(item.status)]">{{ txStatusLabel(item.status) }}</span>
