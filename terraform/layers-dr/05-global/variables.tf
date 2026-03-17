@@ -29,9 +29,3 @@ variable "dr_alb_zone_id" {
   type        = string
   default     = "Z1LMS91P8CMLE5"
 }
-
-variable "domain_name" {
-  description = "Your registered domain e.g. wiseling.xyz"
-  type        = string
-  default = ""
-}
