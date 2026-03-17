@@ -114,10 +114,22 @@ resource "aws_route" "private_nat" {
   nat_gateway_id         = aws_nat_gateway.main.id
 }
 
-resource "aws_route_table_association" "public"    { subnet_id = aws_subnet.public.id;    route_table_id = aws_route_table.public.id }
-resource "aws_route_table_association" "public_2"  { subnet_id = aws_subnet.public_2.id;  route_table_id = aws_route_table.public.id }
-resource "aws_route_table_association" "private"   { subnet_id = aws_subnet.private.id;   route_table_id = aws_route_table.private.id }
-resource "aws_route_table_association" "private_2" { subnet_id = aws_subnet.private_2.id; route_table_id = aws_route_table.private.id }
+resource "aws_route_table_association" "public" { 
+  subnet_id = aws_subnet.public.id
+  route_table_id = aws_route_table.public.id
+}
+resource "aws_route_table_association" "public_2"  { 
+  subnet_id = aws_subnet.public_2.id
+  route_table_id = aws_route_table.public.id
+}
+resource "aws_route_table_association" "private"   { 
+  subnet_id = aws_subnet.private.id
+  route_table_id = aws_route_table.private.id
+}
+resource "aws_route_table_association" "private_2" { 
+  subnet_id = aws_subnet.private_2.id
+  route_table_id = aws_route_table.private.id
+}
 
 resource "aws_security_group" "eks_nodes" {
   name   = "${var.app_name}-eks-nodes-sg-sgp"
