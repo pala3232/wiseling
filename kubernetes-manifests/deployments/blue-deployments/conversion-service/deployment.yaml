@@ -26,6 +26,13 @@ spec:
           labelSelector:
             matchLabels:
               app: conversion-service
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app: conversion-service
+            topologyKey: kubernetes.io/hostname
       containers:
       - name: conversion-service
         image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/conversion-service:1.0.9

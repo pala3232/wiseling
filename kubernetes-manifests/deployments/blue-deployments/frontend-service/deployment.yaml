@@ -26,6 +26,13 @@ spec:
           labelSelector:
             matchLabels:
               app: frontend
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app: frontend
+            topologyKey: kubernetes.io/hostname
       containers:
       - name: frontend
         image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/frontend:1.1.16

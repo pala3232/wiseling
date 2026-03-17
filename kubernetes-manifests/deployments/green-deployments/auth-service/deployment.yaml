@@ -26,6 +26,13 @@ spec:
           labelSelector:
             matchLabels:
               app: auth-service
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app: auth-service
+            topologyKey: kubernetes.io/hostname
       containers:
       - name: auth-service
         image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/auth-service:1.0.7

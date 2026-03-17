@@ -7,6 +7,7 @@ import asyncio
 import json
 import httpx
 import boto3
+import redis.asyncio as aioredis
 from decimal import Decimal
 from app.core.config import settings
 from app.db.session import AsyncSessionLocal
@@ -17,7 +18,19 @@ def get_sqs():
     return boto3.client("sqs", region_name=settings.AWS_REGION)
 
 
+def get_redis():
+    return aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+
+
+async def publish(redis, user_id: str, event: str, data: dict):
+    try:
+        await redis.publish(f"user:{user_id}", json.dumps({"event": event, "data": data}))
+    except Exception as e:
+        print(f"[wallet] Redis publish failed (non-fatal): {e}")
+
+
 async def handle_event(event_type: str, payload: dict):
+    redis = get_redis()
     async with AsyncSessionLocal() as db:
         if event_type == "conversion.requested":
             await debit(
@@ -35,6 +48,10 @@ async def handle_event(event_type: str, payload: dict):
                     )
             except Exception as e:
                 print(f"[wallet] Could not mark conversion complete: {e}")
+            await publish(redis, payload["user_id"], "balance_update", {
+                "reason": "conversion",
+                "reference_id": payload["conversion_id"],
+            })
             print(f"[wallet] Settled conversion {payload['conversion_id']}")
 
         elif event_type == "withdrawal.requested":
@@ -42,6 +59,10 @@ async def handle_event(event_type: str, payload: dict):
                 db, payload["user_id"], payload["currency"],
                 Decimal(payload["amount"]), "withdrawal", payload["withdrawal_id"],
             )
+            await publish(redis, payload["user_id"], "balance_update", {
+                "reason": "withdrawal",
+                "reference_id": payload["withdrawal_id"],
+            })
             print(f"[wallet] Debited withdrawal {payload['withdrawal_id']}")
 
         elif event_type == "transfer.requested":
@@ -60,7 +81,16 @@ async def handle_event(event_type: str, payload: dict):
                     )
             except Exception as e:
                 print(f"[wallet] Could not mark transfer complete: {e}")
+            await publish(redis, payload["sender_id"], "balance_update", {
+                "reason": "transfer_out",
+                "reference_id": payload["transfer_id"],
+            })
+            await publish(redis, payload["recipient_id"], "balance_update", {
+                "reason": "transfer_in",
+                "reference_id": payload["transfer_id"],
+            })
             print(f"[wallet] Settled transfer {payload['transfer_id']}")
+    await redis.aclose()
 
 
 async def poll_queue(queue_url: str, sqs):

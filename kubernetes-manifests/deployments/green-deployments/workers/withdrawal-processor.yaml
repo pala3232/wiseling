@@ -25,6 +25,13 @@ spec:
           labelSelector:
             matchLabels:
               app: withdrawal-processor
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app: withdrawal-processor
+            topologyKey: kubernetes.io/hostname
       containers:
       - name: withdrawal-processor
         image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/withdrawal-service:1.0.18

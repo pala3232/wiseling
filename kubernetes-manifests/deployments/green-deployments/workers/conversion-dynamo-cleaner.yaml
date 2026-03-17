@@ -23,6 +23,13 @@ spec:
           labelSelector:
             matchLabels:
               app: conversion-dynamo-cleaner
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app: conversion-dynamo-cleaner
+            topologyKey: kubernetes.io/hostname
       containers:
       - name: conversion-dynamo-cleaner
         image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/conversion-service:1.0.9
