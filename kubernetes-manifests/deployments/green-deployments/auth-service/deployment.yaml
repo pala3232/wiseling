@@ -45,6 +45,8 @@ spec:
             name: wiseling-config
         - secretRef:
             name: jwt-secret
+        - secretRef:
+            name: db-url-auth
         resources:
           limits:
             memory: "256Mi"
