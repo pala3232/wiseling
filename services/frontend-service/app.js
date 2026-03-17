@@ -211,7 +211,8 @@ createApp({
 
     // ── DASHBOARD INIT ──
     async function enterDashboard() {
-      window.scrollTo({ top: 0, behavior: 'instant' });
+      // Defer scroll until Vue has flipped dashboard visibility
+      setTimeout(() => window.scrollTo({ top: 0, behavior: 'instant' }), 0);
       await loadRates();
       await loadOverview();
       loadMyAccountNumber();
@@ -810,7 +811,6 @@ createApp({
         </div>
       </div>
     </div>
-  </div>
 
 <!-- ══ DASHBOARD ══ -->
   <div id="dashboard-screen" :class="{visible: isLoggedIn}">
