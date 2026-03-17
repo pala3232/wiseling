@@ -32,7 +32,7 @@ jobs:
       - name: Delete ingresses and wait for ALB removal
         continue-on-error: true
         run: |
-          aws eks update-kubeconfig --name wiseling-eks-cluster --region ap-southeast-1
+          aws eks update-kubeconfig --name wiseling-eks-cluster-sgp --region ap-southeast-1
           kubectl delete ingress -n wiseling --all --ignore-not-found
           kubectl delete ingress -n monitoring --all --ignore-not-found
 
@@ -52,13 +52,13 @@ jobs:
       - name: Terminate all EKS nodes
         continue-on-error: true
         run: |
-          aws eks update-kubeconfig --name wiseling-eks-cluster --region ap-southeast-1
+          aws eks update-kubeconfig --name wiseling-eks-cluster-sgp --region ap-southeast-1
 
           kubectl delete namespace karpenter --ignore-not-found || true
           kubectl delete nodepool default --ignore-not-found || true
 
           aws eks update-nodegroup-config \
-            --cluster-name wiseling-eks-cluster \
+            --cluster-name wiseling-eks-cluster-sgp \
             --nodegroup-name bootstrap \
             --scaling-config minSize=0,maxSize=1,desiredSize=0 \
             --region ap-southeast-1 || true
@@ -67,14 +67,14 @@ jobs:
 
           INSTANCE_IDS=$(aws ec2 describe-instances --region ap-southeast-1 \
             --filters \
-              Name=tag:aws:eks:cluster-name,Values=wiseling-eks-cluster \
+              Name=tag:aws:eks:cluster-name,Values=wiseling-eks-cluster-sgp \
               Name=instance-state-name,Values=running \
             --query 'Reservations[].Instances[].InstanceId' \
             --output text)
 
           BOOTSTRAP_IDS=$(aws ec2 describe-instances --region ap-southeast-1 \
             --filters \
-              Name=tag:eks:cluster-name,Values=wiseling-eks-cluster \
+              Name=tag:eks:cluster-name,Values=wiseling-eks-cluster-sgp \
               Name=instance-state-name,Values=running \
             --query 'Reservations[].Instances[].InstanceId' \
             --output text)
@@ -139,7 +139,7 @@ jobs:
           if [ -n "$VPC_ID" ] && [ "$VPC_ID" != "None" ]; then
             SG_IDS=$(aws ec2 describe-security-groups --region ap-southeast-1 \
               --filters Name=vpc-id,Values=$VPC_ID \
-                        Name=tag:elbv2.k8s.aws/cluster,Values=wiseling-eks-cluster \
+                        Name=tag:elbv2.k8s.aws/cluster,Values=wiseling-eks-cluster-sgp \
               --query 'SecurityGroups[*].GroupId' --output text)
 
             for SG_ID in $SG_IDS; do
