@@ -49,6 +49,31 @@ jobs:
             sleep 10
           done
 
+      - name: Force delete any remaining ALBs
+        continue-on-error: true
+        run: |
+            echo "Checking for leftover ALBs..."
+            ALB_ARN_LIST=$(aws elbv2 describe-load-balancers --region ap-southeast-1 \
+              --query 'LoadBalancers[?contains(LoadBalancerName, `k8s-wiseling`)].LoadBalancerArn' \
+              --output text)
+            for ALB_ARN in $ALB_ARN_LIST; do
+              echo "Deleting ALB $ALB_ARN"
+              aws elbv2 delete-load-balancer --region ap-southeast-1 --load-balancer-arn $ALB_ARN || true
+            done
+            # Wait for deletion to complete
+            for ALB_ARN in $ALB_ARN_LIST; do
+              echo "Waiting for ALB $ALB_ARN to be deleted..."
+              for i in $(seq 1 24); do
+                STATUS=$(aws elbv2 describe-load-balancers --region ap-southeast-1 --load-balancer-arns $ALB_ARN --query 'LoadBalancers[0].State.Code' --output text 2>/dev/null || echo "deleted")
+                if [ "$STATUS" = "deleted" ] || [ "$STATUS" = "not-found" ]; then
+                  echo "ALB $ALB_ARN deleted."
+                  break
+                fi
+                echo "Still waiting... ($i/24)"
+                sleep 10
+              done
+            done
+
       - name: Terminate all EKS nodes
         continue-on-error: true
         run: |
