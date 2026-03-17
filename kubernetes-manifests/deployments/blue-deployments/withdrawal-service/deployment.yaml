@@ -28,7 +28,7 @@ spec:
               app: withdrawal-service
       containers:
       - name: withdrawal-service
-        image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/withdrawal-service:1.0.16
+        image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/withdrawal-service:1.0.17
         command: ["sh", "-c", "sleep 5 && uvicorn app.main:app --host 0.0.0.0 --port 8003"]
         ports:
         - containerPort: 8003

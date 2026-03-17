@@ -27,7 +27,7 @@ spec:
               app: withdrawal-processor
       containers:
       - name: withdrawal-processor
-        image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/withdrawal-service:1.0.16
+        image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/withdrawal-service:1.0.17
         command: ["python", "-m", "app.services.processor"]
         envFrom:
           - configMapRef:

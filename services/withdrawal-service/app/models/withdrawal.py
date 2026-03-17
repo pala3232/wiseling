@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from decimal import Decimal
-from sqlalchemy import String, DateTime, Numeric
+from sqlalchemy import String, DateTime, Numeric, Column
 from sqlalchemy.orm import Mapped, mapped_column
 from app.db.base import Base
 
