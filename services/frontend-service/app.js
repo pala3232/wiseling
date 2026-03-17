@@ -1,4 +1,4 @@
-const { createApp, ref, reactive, computed, onMounted, onUnmounted, watch } = Vue;
+const { createApp, ref, computed, onMounted, onUnmounted, watch } = Vue;
 
 // ── CONSTANTS ──────────────────────────────────────────────────────────────
 const API_BASE = window.API_BASE || '';
@@ -24,6 +24,23 @@ function fmtAmount(amount, currency) {
 function fmtDate(dateStr) {
   if (!dateStr) return '—';
   return new Date(dateStr).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+}
+
+// ── CLIPBOARD HELPER ────────────────────────────────────────────────────────
+async function copyToClipboard(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  // Fallback for HTTP or restricted contexts
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  document.execCommand('copy');
+  document.body.removeChild(ta);
 }
 
 // ── VUE APP ──────────────────────────────────────────────────────────────────
@@ -88,7 +105,7 @@ createApp({
     const toasts = ref([]);
 
     // ── ENV INFO ──
-    const envInfo = ref({ pod_name: "unreachable", node_name: "unreachable", cluster_name: "unreachable", aws_region: "unreachable", aws_az: "unreachable" });
+    const envInfo = ref({ pod_name:'unreachable', node_name:'unreachable', cluster_name:'unreachable', aws_region:'unreachable', aws_az:'unreachable' });
 
     // ── COMPUTED ──
     const isLoggedIn = computed(() => !!token.value);
@@ -99,6 +116,8 @@ createApp({
         if (w.currency === 'USD') total += parseFloat(w.balance || 0);
         else if (w.currency === 'EUR') total += parseFloat(w.balance || 0) * (ratesCache.value['EUR/USD'] || 1.08);
         else if (w.currency === 'GBP') total += parseFloat(w.balance || 0) * (ratesCache.value['GBP/USD'] || 1.27);
+        else if (w.currency === 'BTC') total += parseFloat(w.balance || 0) * (ratesCache.value['BTC/USD'] || 60000);
+        else if (w.currency === 'ETH') total += parseFloat(w.balance || 0) * (ratesCache.value['ETH/USD'] || 3000);
       });
       return '$' + total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     });
@@ -107,7 +126,6 @@ createApp({
       if (!convFrom.value || !convTo.value) return null;
       const direct = ratesCache.value[`${convFrom.value}/${convTo.value}`];
       if (direct) return direct;
-      // try inverse pair and invert the rate
       const inverse = ratesCache.value[`${convTo.value}/${convFrom.value}`];
       if (inverse && parseFloat(inverse) !== 0) return (1 / parseFloat(inverse)).toFixed(8);
       return null;
@@ -218,7 +236,6 @@ createApp({
 
     // ── DASHBOARD INIT ──
     async function enterDashboard() {
-      // Defer scroll until Vue has flipped dashboard visibility
       setTimeout(() => window.scrollTo({ top: 0, behavior: 'instant' }), 0);
       await loadRates();
       await loadOverview();
@@ -260,11 +277,12 @@ createApp({
         ]);
         wallets.value = Array.isArray(ws) ? ws : [];
         allConversions.value = Array.isArray(convs) ? convs : [];
-        const sentWds = Array.isArray(wds) ? wds.map(w => ({ ...w, direction: 'out' })) : [];
+        const sentWds    = Array.isArray(wds)     ? wds.map(w => ({ ...w, direction: 'out' })) : [];
         const inboundWds = Array.isArray(recvWds) ? recvWds.map(w => ({ ...w, direction: 'in' })) : [];
-        allWithdrawals.value = [...sentWds, ...inboundWds].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        const freshAll   = [...sentWds, ...inboundWds].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        allWithdrawals.value = freshAll;
         allTransfers.value = Array.isArray(transfers) ? transfers : [];
-        pendingWithdrawals.value = freshAll.filter(w => ['pending', 'processing'].includes((w.status || '').toLowerCase()));
+        pendingWithdrawals.value = sentWds.filter(w => ['pending', 'processing'].includes((w.status || '').toLowerCase()));
         pendingConversions.value = allConversions.value.filter(c => ['pending', 'processing'].includes((c.status || '').toLowerCase()));
       } catch (e) {
         showToast(e.message, 'error');
@@ -283,8 +301,10 @@ createApp({
     }
 
     async function copyWalletId(id) {
-      await copyToClipboard(id);
-      showToast('Wallet ID copied', 'success');
+      try {
+        await copyToClipboard(id);
+        showToast('Wallet ID copied', 'success');
+      } catch { showToast('Could not copy', 'error'); }
     }
 
     // ── CONVERT ──
@@ -367,7 +387,7 @@ createApp({
       wdRecipientLoading.value = false;
     }
 
-    // ── SEND MONEY (with confirm modal) ──
+    // ── SEND MONEY ──
     function initiateWithdraw() {
       if (!wdRecipient.value?.found) return;
       showConfirmModal.value = true;
@@ -385,13 +405,7 @@ createApp({
         });
         wdResult.value = res;
         showConfirmModal.value = false;
-
-        // Save recent recipient
-        if (wdRecipient.value?.email) {
-          addRecentRecipient(wdRecipient.value.email, wdAccountNumber.value);
-        }
-
-        // Proof of payment
+        if (wdRecipient.value?.email) addRecentRecipient(wdRecipient.value.email, wdAccountNumber.value);
         proofData.value = {
           type: 'transfer',
           id: res.id || genUID(),
@@ -408,17 +422,12 @@ createApp({
           created_at: res.created_at || new Date().toISOString(),
         };
         showProof.value = true;
-
         showToast('Transfer sent!', 'success');
         wdAmount.value = '';
         wdAccountNumber.value = '';
         wdRecipient.value = null;
-
-        // Refresh wallets inline
         await loadWallets();
         await loadOverview();
-
-        // Poll if pending
         if (['pending','processing'].includes((res.status || '').toLowerCase())) {
           pendingWithdrawals.value.push(res);
         }
@@ -445,6 +454,11 @@ createApp({
 
     // ── HISTORY ──
     async function loadHistory() {
+      // Reuse already-loaded data if available
+      if (allConversions.value.length || allWithdrawals.value.length || allTransfers.value.length) {
+        historyLoading.value = false;
+        return;
+      }
       historyLoading.value = true;
       try {
         const [convs, wds, transfers, recvWds] = await Promise.all([
@@ -454,7 +468,7 @@ createApp({
           api('GET', '/api/v1/withdrawals/received').catch(() => []),
         ]);
         allConversions.value = Array.isArray(convs) ? convs : [];
-        const sentWds = Array.isArray(wds) ? wds.map(w => ({ ...w, direction: 'out' })) : [];
+        const sentWds    = Array.isArray(wds)     ? wds.map(w => ({ ...w, direction: 'out' })) : [];
         const inboundWds = Array.isArray(recvWds) ? recvWds.map(w => ({ ...w, direction: 'in' })) : [];
         allWithdrawals.value = [...sentWds, ...inboundWds].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         allTransfers.value = Array.isArray(transfers) ? transfers : [];
@@ -479,15 +493,12 @@ createApp({
           created_at: item.created_at,
         };
       } else {
-        // withdrawal or transfer — WithdrawalResponse has: id, currency, amount, fee,
-        // net_amount, recipient_id, transfer_type, status, created_at, direction (frontend-added)
         const isReceived = item.direction === 'in';
         proofData.value = {
           type: 'transfer',
           id: item.id || '—',
           direction: isReceived ? 'in' : 'out',
           transfer_type: item.transfer_type || 'transfer',
-          // recipient info not stored on the record — show recipient_id as fallback
           to_email: item.to_email || '—',
           to_account: item.to_account_number || '—',
           recipient_id: item.recipient_id || null,
@@ -502,31 +513,21 @@ createApp({
       showProof.value = true;
     }
 
-    // ── PROOF OF PAYMENT HELPERS ──
     async function copyProofRef() {
       if (proofData.value?.id) {
-        await copyToClipboard(proofData.value.id);
-        showToast('Reference copied', 'success');
+        try { await copyToClipboard(proofData.value.id); showToast('Reference copied', 'success'); }
+        catch { showToast('Could not copy', 'error'); }
       }
     }
 
-    function viewProofInHistory() {
-      showProof.value = false;
-      proofData.value = null;
-      navigate('history');
-    }
-
-    function dismissProof() {
-      showProof.value = false;
-      proofData.value = null;
-    }
+    function viewProofInHistory() { showProof.value = false; proofData.value = null; navigate('history'); }
+    function dismissProof() { showProof.value = false; proofData.value = null; }
 
     function fmtProofDate(iso) {
       if (!iso) return '—';
       const d = new Date(iso);
-      return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-        + ' · '
-        + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      return d.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' })
+        + ' · ' + d.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
     }
 
     // ── COPY ACCOUNT NUMBER ──
@@ -536,33 +537,17 @@ createApp({
       try {
         await copyToClipboard(val);
         showToast('Account number copied', 'success');
-      } catch {
-        // Fallback for non-HTTPS or permission denied
-        try {
-          const ta = document.createElement('textarea');
-          ta.value = val;
-          ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
-          document.body.appendChild(ta);
-          ta.focus(); ta.select();
-          document.execCommand('copy');
-          document.body.removeChild(ta);
-          showToast('Account number copied', 'success');
-        } catch {
-          showToast('Copy failed — please copy manually: ' + val, 'error');
-        }
-      }
+      } catch { showToast('Copy failed — please copy manually: ' + val, 'error'); }
     }
 
-
-// ── POLLING for pending withdrawals + conversions ──
+    // ── POLLING ──
     let refreshTick = 0;
     function startPolling() {
       pollInterval = setInterval(async () => {
         refreshTick++;
         const hasPendingWds   = pendingWithdrawals.value.length > 0;
         const hasPendingConvs = pendingConversions.value.length > 0;
-        const doFullRefresh   = refreshTick % 6 === 0; // every 30s regardless of pending state
-
+        const doFullRefresh   = refreshTick % 6 === 0;
         try {
           if (hasPendingWds || doFullRefresh) {
             const [wds, recvWds] = await Promise.all([
@@ -591,7 +576,6 @@ createApp({
             }
             pendingWithdrawals.value = sentWds.filter(w => ['pending', 'processing'].includes((w.status || '').toLowerCase()));
           }
-
           if (hasPendingConvs || doFullRefresh) {
             const convs = await api('GET', '/api/v1/conversions');
             const fresh = Array.isArray(convs) ? convs : [];
@@ -622,7 +606,7 @@ createApp({
       if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
     }
 
-    // ── SSE (optional — connect if backend supports it) ──
+    // ── SSE ──
     function startSSE() {
       if (!token.value) return;
       try {
@@ -632,7 +616,8 @@ createApp({
         sseSource.addEventListener('balance_update', async () => { await loadWallets(); });
         sseSource.addEventListener('withdrawal_update', async (e) => {
           const data = JSON.parse(e.data);
-          const _st = (data.status||'').toLowerCase(); showToast(`Withdrawal ${_st}`, _st === 'completed' ? 'success' : 'error');
+          const st = (data.status||'').toLowerCase();
+          showToast(`Withdrawal ${st}`, st === 'completed' ? 'success' : 'error');
           await loadOverview();
         });
       } catch {}
@@ -648,14 +633,10 @@ createApp({
       const id = String(proofData.value.id).trim();
       if (proofData.value.type === 'conversion') {
         const updated = allConversions.value.find(c => String(c.id).trim() === id);
-        if (updated && updated.status !== proofData.value.status) {
-          proofData.value = { ...proofData.value, status: updated.status };
-        }
+        if (updated && updated.status !== proofData.value.status) proofData.value = { ...proofData.value, status: updated.status };
       } else {
         const updated = allWithdrawals.value.find(w => String(w.id).trim() === id);
-        if (updated && updated.status !== proofData.value.status) {
-          proofData.value = { ...proofData.value, status: updated.status };
-        }
+        if (updated && updated.status !== proofData.value.status) proofData.value = { ...proofData.value, status: updated.status };
       }
     }, { deep: true });
 
@@ -667,20 +648,17 @@ createApp({
         if (res.ok) {
           const data = await res.json();
           envInfo.value = {
-            pod_name: data.pod_name ?? 'unknown',
-            node_name: data.node_name ?? 'unknown',
+            pod_name:     data.pod_name     ?? 'unknown',
+            node_name:    data.node_name    ?? 'unknown',
             cluster_name: data.cluster_name ?? 'unknown',
-            aws_region: data.aws_region ?? 'unknown',
-            aws_az: data.aws_az ?? 'unknown',
+            aws_region:   data.aws_region   ?? 'unknown',
+            aws_az:       data.aws_az       ?? 'unknown',
           };
         }
       } catch {}
     });
 
-    onUnmounted(() => {
-      stopPolling();
-      stopSSE();
-    });
+    onUnmounted(() => { stopPolling(); stopSSE(); });
 
     // ── TEMPLATE HELPERS ──
     function walletClass(currency) { return WALLET_CLS[currency] || 'usd'; }
@@ -699,56 +677,22 @@ createApp({
       return s.charAt(0).toUpperCase() + s.slice(1);
     }
 
-    // Env info bar: detect wrapping
-    const envInfoBoxRef = ref(null);
-    const envInfoIsWrapped = ref(false);
-    onMounted(() => {
-      // ...existing code...
-      // Watch for env info bar wrapping
-      const checkWrap = () => {
-        const el = envInfoBoxRef.value;
-        if (!el) return;
-        // If height is more than 1.5x lineHeight, it's wrapped
-        const lineHeight = parseFloat(getComputedStyle(el).lineHeight);
-        envInfoIsWrapped.value = el.offsetHeight > lineHeight * 1.5;
-      };
-      window.addEventListener('resize', checkWrap);
-      setTimeout(checkWrap, 100);
-    });
-    onUnmounted(() => {
-      window.removeEventListener('resize', () => {});
-    });
-
     return {
-      // auth
-      token, userEmail, authTab, authEmail, authPassword, authLoading, authError,
-      handleAuth, logout,
-      // nav
+      token, userEmail, authTab, authEmail, authPassword, authLoading, authError, handleAuth, logout,
       currentPage, navigate, PAGE_NAMES,
-      // rates
       ratesCache, currentRate, currentRateText,
-      // overview
-      overviewLoading, totalBalance, recentActivity, greeting,
-      allConversions, allWithdrawals, allTransfers,
-      // wallets
+      overviewLoading, totalBalance, recentActivity, greeting, allConversions, allWithdrawals, allTransfers,
       wallets, walletsLoading, loadWallets, copyWalletId, walletClass, curSym, fmt,
-      // convert
       convFrom, convTo, convAmount, convLoading, convError, convResult, convPreview, fromWalletBalance, handleConvert,
       convPending, showConvConfirmModal, convConfirmLoading, confirmConvert,
-      // withdraw
       wdAccountNumber, wdCurrency, wdAmount, wdLoading, wdError, wdResult,
       wdRecipient, wdRecipientLoading, onAccountInput, myAccountNumber, copyAccountNumber,
       wdWalletBalance, initiateWithdraw, confirmWithdraw, showConfirmModal, confirmLoading,
       showProof, proofData, copyProofRef, viewProofInHistory, dismissProof, fmtProofDate, openProofFromRow,
       recentRecipients, fillRecipient,
-      // history
       historyFilter, historyLoading, filteredHistory, loadHistory,
-      // utils
       toasts, sseConnected, date, txStatusClass, txStatusLabel, fmtAmount,
-      isLoggedIn,
-      envInfo,
-      envInfoBoxRef,
-      envInfoIsWrapped,
+      isLoggedIn, envInfo,
     };
   },
 
@@ -805,7 +749,7 @@ createApp({
     <div class="modal proof-modal">
       <div class="proof-header">
         <div class="proof-check" :style="['pending','processing'].includes((proofData.status||'').toLowerCase()) ? 'background:var(--amber-bg);border-color:rgba(246,173,85,0.35);color:var(--amber)' : ''">
-          {{ ['pending','processing'].includes((proofData.status||'').toLowerCase()) ? '⏳' : '&#10003;' }}
+          {{ ['pending','processing'].includes((proofData.status||'').toLowerCase()) ? '⏳' : '✓' }}
         </div>
         <div class="proof-title">
           <template v-if="proofData.type === 'conversion'">
@@ -816,9 +760,7 @@ createApp({
           </template>
         </div>
         <div class="proof-sub">
-          <template v-if="['pending','processing'].includes((proofData.status||'').toLowerCase())">
-            This transaction is still being processed
-          </template>
+          <template v-if="['pending','processing'].includes((proofData.status||'').toLowerCase())">This transaction is still being processed</template>
           <template v-else-if="proofData.type === 'conversion'">Your wallets have been updated</template>
           <template v-else>{{ proofData.direction === 'in' ? 'Funds received into your wallet' : 'Your funds have been sent successfully' }}</template>
         </div>
@@ -836,7 +778,7 @@ createApp({
           <div class="modal-row"><span class="modal-row-label">Net amount</span><span class="modal-row-val" style="color:var(--primary)">{{ fmt(proofData.net_amount ?? proofData.amount, proofData.currency) }} {{ proofData.currency }}</span></div>
           <div class="modal-row"><span class="modal-row-label">Status</span><span :class="['badge', txStatusClass(proofData.status)]">{{ txStatusLabel(proofData.status) }}</span></div>
           <div class="modal-row"><span class="modal-row-label">Date &amp; Time</span><span class="modal-row-val" style="font-family:var(--mono);font-size:0.75rem">{{ fmtProofDate(proofData.created_at) }}</span></div>
-          <div class="modal-row"><span class="modal-row-label">Reference</span><span class="modal-row-val proof-ref" @click="copyProofRef" title="Click to copy">{{ proofData.id }}</span></div>
+          <div class="modal-row"><span class="modal-row-label">Reference</span><span class="modal-row-val proof-ref" @click="copyProofRef" title="Click to copy" style="cursor:pointer;color:var(--primary)">{{ proofData.id }}</span></div>
         </div>
       </template>
       <template v-else>
@@ -848,7 +790,7 @@ createApp({
           <div class="modal-row"><span class="modal-row-label">Fee</span><span class="modal-row-val">{{ proofData.fee_amount ? fmt(proofData.fee_amount, proofData.fee_currency) + ' ' + proofData.fee_currency : '—' }}</span></div>
           <div class="modal-row"><span class="modal-row-label">Status</span><span :class="['badge', txStatusClass(proofData.status)]">{{ txStatusLabel(proofData.status) }}</span></div>
           <div class="modal-row"><span class="modal-row-label">Date &amp; Time</span><span class="modal-row-val" style="font-family:var(--mono);font-size:0.75rem">{{ fmtProofDate(proofData.created_at) }}</span></div>
-          <div class="modal-row"><span class="modal-row-label">Reference</span><span class="modal-row-val proof-ref" @click="copyProofRef" title="Click to copy">{{ proofData.id }}</span></div>
+          <div class="modal-row"><span class="modal-row-label">Reference</span><span class="modal-row-val proof-ref" @click="copyProofRef" title="Click to copy" style="cursor:pointer;color:var(--primary)">{{ proofData.id }}</span></div>
         </div>
       </template>
       <div class="modal-actions" style="margin-top:0.5rem">
@@ -858,17 +800,14 @@ createApp({
     </div>
   </div>
 
-    <!-- ══ AUTH SCREEN ══ -->
+  <!-- ══ AUTH SCREEN ══ -->
   <div id="auth-screen" :class="{visible: !isLoggedIn}">
-    <!-- Top bar -->
-    <div style="background:var(--bg2);border-bottom:1px solid var(--border);height:56px;display:flex;align-items:center;padding:0 2rem;justify-content:space-between;">
+    <div style="background:var(--bg2);border-bottom:1px solid var(--border);height:56px;display:flex;align-items:center;padding:0 2rem;justify-content:space-between;flex-shrink:0;">
       <div style="display:flex;align-items:center;gap:8px;">
         <div class="auth-logo-box">W</div>
         <div class="auth-logo-text">Wiseling</div>
       </div>
-      <div class="auth-topbar-register mobile-only" style="display:flex;align-items:center;gap:1.5rem;">
-        <button @click="authTab='register'" style="background:transparent;border:1px solid var(--border2);color:var(--ink);font-family:var(--font);font-size:0.82rem;padding:0.4rem 1rem;border-radius:var(--radius);cursor:pointer;">Register</button>
-      </div>
+      <button @click="authTab='register'" style="background:transparent;border:1px solid var(--border2);color:var(--ink);font-family:var(--font);font-size:0.82rem;padding:0.4rem 1rem;border-radius:var(--radius);cursor:pointer;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--primary)';this.style.color='var(--primary)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--ink)'">Register</button>
     </div>
     <div class="banner-row">
       <span style="color:var(--primary);flex-shrink:0;">ⓘ</span>
@@ -876,81 +815,45 @@ createApp({
     </div>
     <div class="auth-body">
       <div class="auth-left">
+        <div class="auth-logo">
+          <div class="auth-logo-box">W</div>
+          <div class="auth-logo-text">Wiseling</div>
+        </div>
         <div>
           <div class="auth-left-tag">Convert & Pay</div>
           <h1>Simple, secure<br><span>international banking.</span></h1>
-          <p>Manage multiple currencies, convert funds at live rates, send money between your wallets — all from one account.</p>
+          <p>Manage multiple currencies, convert funds at live rates, and send money internationally — all from one account.</p>
           <div class="auth-features">
             <div class="auth-feature"><div class="auth-feature-dot"></div>Multi-currency wallets (USD, EUR, GBP and more)</div>
             <div class="auth-feature"><div class="auth-feature-dot"></div>Real-time FX conversions at competitive rates</div>
-            <div class="auth-feature"><div class="auth-feature-dot"></div>Account-to-account transfers</div>
+            <div class="auth-feature"><div class="auth-feature-dot"></div>International IBAN transfers</div>
             <div class="auth-feature"><div class="auth-feature-dot"></div>Full transaction history</div>
           </div>
         </div>
+        <div class="auth-trust">256-bit encryption · SOC2 compliant · 150+ currencies</div>
       </div>
       <div class="auth-right">
         <div class="auth-form-wrap">
           <div class="auth-form-title">{{ authTab === 'login' ? 'Welcome' : 'Create your account' }}</div>
           <div class="tab-switcher">
             <button class="tab-btn" :class="{active:authTab==='login'}" @click="authTab='login'">Sign In</button>
-            <button class="tab-btn desktop-only" :class="{active:authTab==='register'}" @click="authTab='register'">Register</button>
+            <button class="tab-btn" :class="{active:authTab==='register'}" @click="authTab='register'">Register</button>
           </div>
           <form @submit.prevent="handleAuth">
             <div class="form-group"><label class="form-label">Email Address</label><input class="form-input" type="email" v-model="authEmail" placeholder="you@example.com" required autocomplete="email" /></div>
             <div class="form-group"><label class="form-label">Password</label><input class="form-input" type="password" v-model="authPassword" placeholder="••••••••" required autocomplete="current-password" /></div>
-            <div v-if="authTab === 'login'" style="font-size:0.82rem;color:var(--ink-soft);margin-bottom:0.7rem;line-height:1.5;">
-              By logging in, you agree to our platform’s <a href="#" style="color:var(--primary);text-decoration:underline;">Terms</a> and <a href="#" style="color:var(--primary);text-decoration:underline;">Privacy Policy</a>.
-            </div>
-            <div v-if="authTab === 'login'" style="background:var(--surface);border:1px solid var(--primary-dim);border-radius:var(--radius);padding:0.85rem 1rem;font-size:0.83rem;color:var(--ink-mid);margin-bottom:1.1rem;line-height:1.6;">
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:0.3rem;"><span style="color:var(--primary);font-size:1.1em;">&#9432;</span><strong>New: Money Conversion Feature</strong></div>
-              We’ve introduced a new money conversion feature for your convenience. Instantly convert between supported currencies within your account.<br>
-              All conversions are processed securely and include a flat fee of <strong>0.30%</strong> per transaction.<br>
-              For more details, please review our <a href="#" style="color:var(--primary);text-decoration:underline;">Terms</a> or contact support.
-            </div>
-            <button class="btn-primary" type="submit" :disabled="authLoading">
-              <template v-if="authLoading">
-                Please wait...
-              </template>
-              <template v-else-if="authTab === 'login'">
-                <span style="display: inline-flex; align-items: center; gap: 0.45em;">
-                  <span>Sign In</span>
-                  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;">
-                    <rect x="4" y="9" width="12" height="7" rx="2" fill="currentColor" fill-opacity="0.18"/>
-                    <rect x="4" y="9" width="12" height="7" rx="2" stroke="currentColor" stroke-width="1.5"/>
-                    <path d="M7 9V7.5C7 5.567 8.567 4 10.5 4C12.433 4 14 5.567 14 7.5V9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                    <circle cx="10" cy="12.5" r="1" fill="currentColor"/>
-                  </svg>
-                </span>
-              </template>
-              <template v-else>
-                Create Account
-              </template>
-            </button>
+            <button class="btn-primary" type="submit" :disabled="authLoading">{{ authLoading ? 'Please wait...' : (authTab === 'login' ? 'Sign In' : 'Create Account') }}</button>
             <div v-if="authError" class="error-msg show">{{ authError }}</div>
+            <div v-if="authTab==='login'" style="text-align:center;margin-top:1rem;">
+              <a href="#" style="font-family:var(--mono);font-size:0.72rem;color:var(--ink-soft);text-decoration:underline;transition:color 0.15s;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--ink-soft)'">Forgot your password?</a>
+            </div>
           </form>
-        </div>
-        <!-- Env info bar: direct child of .auth-right, after .auth-form-wrap -->
-        <div v-if="envInfo && authTab === 'login'" class="env-info-box env-info-authcard">
-          Pod: {{ envInfo.pod_name }}
-          <span style="padding:0 0.5em;">&bull;</span>
-          Node: {{ envInfo.node_name }}
-          <span style="padding:0 0.5em;">&bull;</span>
-          Cluster: {{ envInfo.cluster_name }}
-          <template v-if="envInfo.aws_region && envInfo.aws_region !== 'unknown' && envInfo.aws_az && envInfo.aws_az !== 'unknown'">
-            <span style="padding:0 0.5em;">&bull;</span> <span style="white-space:nowrap">Region: {{ envInfo.aws_region }}{{ envInfo.aws_az }}</span>
-          </template>
-          <template v-else-if="envInfo.aws_region && envInfo.aws_region !== 'unknown'">
-            <span style="padding:0 0.5em;">&bull;</span> <span style="white-space:nowrap">Region: {{ envInfo.aws_region }}</span>
-          </template>
-          <template v-else-if="envInfo.aws_az && envInfo.aws_az !== 'unknown'">
-            <span style="padding:0 0.5em;">&bull;</span> <span style="white-space:nowrap">AZ: {{ envInfo.aws_az }}</span>
-          </template>
-        </div>
         </div>
       </div>
     </div>
+  </div>
 
-<!-- ══ DASHBOARD ══ -->
+  <!-- ══ DASHBOARD ══ -->
   <div id="dashboard-screen" :class="{visible: isLoggedIn}">
     <header class="topbar">
       <div class="topbar-row">
@@ -970,13 +873,11 @@ createApp({
           </div>
         </div>
       </div>
-      <!-- Banner row -->
       <div class="banner-row">
         <span style="color:var(--primary);flex-shrink:0;">ⓘ</span>
         When sending money, we now verify recipient account numbers in real-time before any transfer is processed.
       </div>
     </header>
-
 
     <div class="subnav">
       <span class="subnav-home" @click="navigate('overview')">Home</span>
@@ -1018,7 +919,7 @@ createApp({
             <table v-else>
               <thead><tr><th>Type</th><th>Details</th><th>Amount</th><th>Status</th></tr></thead>
               <tbody>
-                <tr v-for="item in recentActivity" :key="item.id" class="tx-row" @click="openProofFromRow(item)" title="View receipt">
+                <tr v-for="item in recentActivity" :key="item.id" class="tx-row" @click="openProofFromRow(item)" title="View receipt" style="cursor:pointer;">
                   <td>
                     <span v-if="item._type==='conversion'" class="badge badge-type">Conversion</span>
                     <span v-else-if="item._type==='transfer'" class="badge badge-type" style="background:rgba(139,92,246,0.15);color:#a78bfa;">Transfer</span>
@@ -1034,9 +935,7 @@ createApp({
                     <span v-else-if="item._type==='conversion'">{{ fmt(item.from_amount||item.amount, item.from_currency) }} {{ item.from_currency }}</span>
                     <span v-else>{{ fmt(item.amount, item.currency) }} {{ item.currency }}</span>
                   </td>
-                  <td>
-                    <span :class="['badge', txStatusClass(item.status)]">{{ txStatusLabel(item.status) }}</span>
-                  </td>
+                  <td><span :class="['badge', txStatusClass(item.status)]">{{ txStatusLabel(item.status) }}</span></td>
                 </tr>
               </tbody>
             </table>
@@ -1054,8 +953,9 @@ createApp({
             <div class="wallet-watermark">{{ w.currency }}</div>
             <div class="wallet-currency">{{ w.currency }}<span style="font-weight:300;font-size:0.9em">{{ curSym(w.currency) }}</span></div>
             <div class="wallet-balance">{{ curSym(w.currency) }}{{ parseFloat(w.balance||0).toLocaleString('en-US',{maximumFractionDigits:8}) }}</div>
-            <div class="wallet-id">
+            <div class="wallet-id" @click="copyWalletId(w.id)" title="Click to copy">
               Wallet {{ w.id || '—' }}
+              <span class="wallet-copy-hint">📋 copy</span>
             </div>
           </div>
         </div>
@@ -1066,7 +966,6 @@ createApp({
         <div class="page-header"><div><div class="page-title">Convert Currency</div><div class="page-sub">Exchange between your wallets at live market rates</div></div></div>
         <div class="form-card">
           <div class="form-card-title">New Conversion</div>
-          <!-- Inline wallet balances -->
           <div v-if="wallets.length" class="inline-balance-strip">
             <div v-for="w in wallets.slice(0,4)" :key="w.id" class="ibs-card">
               <div class="ibs-label">{{ w.currency }}</div>
@@ -1075,19 +974,15 @@ createApp({
           </div>
           <div class="rate-display"><div class="rate-dot"></div><span>{{ currentRateText }}</span></div>
           <form @submit.prevent="handleConvert">
-            <div class="form-row" style="align-items:flex-end">
-              <div class="form-group" style="display:flex;flex-direction:column;">
+            <div class="form-row">
+              <div class="form-group">
                 <label class="form-label">From Currency</label>
-                <div style="font-family:var(--mono);font-size:0.68rem;color:var(--ink-soft);margin-bottom:4px;min-height:1.1em;">
-                  <span v-if="fromWalletBalance">Balance: {{ fromWalletBalance }}</span>
-                </div>
+                <div v-if="fromWalletBalance" style="font-family:var(--mono);font-size:0.68rem;color:var(--ink-soft);margin-bottom:4px;">Balance: {{ fromWalletBalance }}</div>
                 <select class="select-input" v-model="convFrom">
                   <option value="USD">USD</option><option value="EUR">EUR</option><option value="GBP">GBP</option><option value="BTC">BTC</option><option value="ETH">ETH</option>
                 </select>
               </div>
-              <div class="form-group" style="display:flex;flex-direction:column;">
-                <label class="form-label">To Currency</label>
-                <div style="min-height:1.1em;margin-bottom:4px;"></div>
+              <div class="form-group"><label class="form-label">To Currency</label>
                 <select class="select-input" v-model="convTo">
                   <option value="EUR">EUR</option><option value="USD">USD</option><option value="GBP">GBP</option><option value="BTC">BTC</option><option value="ETH">ETH</option>
                 </select>
@@ -1099,7 +994,6 @@ createApp({
             <button class="btn-primary" type="submit" :disabled="convLoading">{{ convLoading ? 'Processing...' : 'Confirm Conversion' }}</button>
             <div v-if="convError" class="error-msg show">{{ convError }}</div>
           </form>
-          <!-- Inline result — no need to navigate away -->
           <div v-if="convResult" class="result-card show">
             <div class="result-card-title">✓ Conversion complete</div>
             <div class="result-card-amount">+{{ fmt(convResult.to_amount, convResult.to_currency) }} {{ convResult.to_currency }}</div>
@@ -1111,7 +1005,6 @@ createApp({
       <!-- ── SEND MONEY ── -->
       <div class="page" :class="{active:currentPage==='withdraw'}">
         <div class="page-header"><div><div class="page-title">Send Money</div><div class="page-sub">Transfer funds to another Wiseling user instantly</div></div></div>
-        <!-- My account number card -->
         <div class="form-card" style="margin-bottom:1rem;">
           <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">
             <div>
@@ -1123,7 +1016,6 @@ createApp({
         </div>
         <div class="form-card">
           <div class="form-card-title">New Transfer</div>
-          <!-- Inline wallet balance for selected currency -->
           <div v-if="wdWalletBalance" style="font-family:var(--mono);font-size:0.72rem;color:var(--ink-soft);margin-bottom:1rem;padding:0.5rem 0.75rem;background:var(--bg3);border-radius:var(--radius);border:1px solid var(--border);">
             Available: <span style="color:var(--ink);font-weight:600;">{{ wdWalletBalance }}</span>
           </div>
@@ -1145,13 +1037,11 @@ createApp({
             <button class="btn-primary" type="submit" :disabled="!wdRecipient?.found || !wdAmount">Review & Send</button>
             <div v-if="wdError" class="error-msg show">{{ wdError }}</div>
           </form>
-          <!-- Inline result -->
           <div v-if="wdResult" class="result-card show">
             <div class="result-card-title">✓ Transfer sent</div>
-            <div class="result-card-amount">{{ wdAmount }} {{ wdCurrency }}</div>
+            <div class="result-card-amount">{{ fmt(wdResult.amount || wdAmount, wdResult.currency || wdCurrency) }} {{ wdResult.currency || wdCurrency }}</div>
             <div class="result-card-sub">Reference: {{ wdResult.id || '—' }} · Your balance has been updated</div>
           </div>
-          <!-- Recent recipients -->
           <div v-if="recentRecipients.length" style="margin-top:1.5rem;">
             <div style="font-size:0.7rem;color:var(--ink-soft);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:0.75rem;">Recent Recipients</div>
             <div style="display:flex;flex-direction:column;gap:0.4rem;">
@@ -1174,9 +1064,9 @@ createApp({
           <div v-if="historyLoading" class="loading"><div class="spinner"></div>Loading...</div>
           <div v-else-if="!filteredHistory.length" class="empty-state">No transactions found</div>
           <table v-else>
-            <thead><tr><th>Type</th><th>Details</th><th>Amount</th><th>Status</th><th>Date</th><th></th></tr></thead>
+            <thead><tr><th>Type</th><th>Details</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
             <tbody>
-              <tr v-for="item in filteredHistory" :key="item.id + item._type" class="tx-row" @click="openProofFromRow(item)" title="View receipt">
+              <tr v-for="item in filteredHistory" :key="item.id + item._type" class="tx-row" @click="openProofFromRow(item)" style="cursor:pointer;">
                 <td>
                   <span v-if="item._type==='conversion'" class="badge badge-type">Conversion</span>
                   <span v-else-if="item._type==='transfer'" class="badge badge-type" style="background:rgba(139,92,246,0.15);color:#a78bfa;">Transfer</span>
@@ -1197,7 +1087,6 @@ createApp({
                   <span v-if="['pending','processing'].includes((item.status||'').toLowerCase())" class="pending-spinner" style="margin-left:6px;display:inline-block;"></span>
                 </td>
                 <td style="font-family:var(--mono);font-size:0.75rem;color:var(--ink-soft)">{{ date(item.created_at) }}</td>
-                <td class="tx-receipt-hint">&#x1F9FE;</td>
               </tr>
             </tbody>
           </table>
@@ -1206,7 +1095,6 @@ createApp({
 
     </div>
 
-    <!-- Mobile nav -->
     <nav class="mobile-nav">
       <button v-for="(label, key) in PAGE_NAMES" :key="key" class="mobile-nav-item" :class="{active:currentPage===key}" @click="navigate(key)">
         <span class="mobile-nav-icon">{{ {overview:'◎',wallets:'▣',convert:'⇄',withdraw:'↑',history:'≡'}[key] }}</span>
