@@ -41,6 +41,12 @@ jobs:
           echo "TF_VAR_primary_alb_dns=$PRIMARY_ALB" >> $GITHUB_ENV
           echo "Primary ALB: $PRIMARY_ALB"
 
+          aws eks update-kubeconfig --name wiseling-eks-cluster-sgp --region ap-southeast-1 2>/dev/null || true
+          DR_ALB=$(kubectl get ingress wiseling-ingress -n wiseling \
+            -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
+          echo "TF_VAR_dr_alb_dns=$DR_ALB" >> $GITHUB_ENV
+          echo "DR ALB: $DR_ALB"
+
       - name: Run Terraform
         env:
           TF_VAR_admin_iam_arn: ${{ secrets.ADMIN_IAM_ARN }}
@@ -50,6 +56,11 @@ jobs:
           LAYERS=("01-network-sgp" "02-data-sgp" "04-eks-sgp" "03-iam-sgp")
           TARGET="${{ github.event.inputs.layer }}"
           ACTION="${{ github.event.inputs.action }}"
+
+          if [ "$TARGET" = "05-global" ]; then
+            echo "05-global handled by dedicated step."
+            exit 0
+          fi
 
           run_layer() {
             local layer="$1"
