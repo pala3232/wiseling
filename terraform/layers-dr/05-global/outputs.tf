@@ -6,3 +6,11 @@ output "name_servers" {
   value       = aws_route53_zone.main.name_servers
   description = "Paste these into Cloudflare as custom nameservers"
 }
+
+output "primary_ingress_cert_annotation" {
+  value = "alb.ingress.kubernetes.io/certificate-arn: ${aws_acm_certificate_validation.primary.certificate_arn}"
+}
+
+output "dr_ingress_cert_annotation" {
+  value = "alb.ingress.kubernetes.io/certificate-arn: ${aws_acm_certificate_validation.dr.certificate_arn}"
+}

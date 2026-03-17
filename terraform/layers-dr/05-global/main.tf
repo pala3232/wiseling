@@ -43,6 +43,8 @@ resource "aws_route53_health_check" "primary" {
   fqdn              = var.primary_alb_dns
   port              = 80
   type              = "HTTP"
+  # port = 443        SWITCH TO THIS PORT AFTER YOU DEPLOYED THE ACM CERT AND APPLIED PORT 80.
+  # type = "HTTPS"    SWITCH TO THIS PORT AFTER YOU DEPLOYED THE ACM CERT AND APPLIED PORT 80.
   resource_path     = "/api/v1/auth/health"
   failure_threshold = 3
   request_interval  = 30
@@ -57,6 +59,8 @@ resource "aws_route53_health_check" "dr" {
   fqdn              = var.dr_alb_dns
   port              = 80
   type              = "HTTP"
+  # port = 443        SWITCH TO THIS PORT AFTER YOU DEPLOYED THE ACM CERT AND APPLIED PORT 80.
+  # type = "HTTPS"    SWITCH TO THIS PORT AFTER YOU DEPLOYED THE ACM CERT AND APPLIED PORT 80.
   resource_path     = "/api/v1/auth/health"
   failure_threshold = 3
   request_interval  = 30
@@ -106,4 +110,58 @@ resource "aws_route53_record" "dr" {
     zone_id                = var.dr_alb_zone_id
     evaluate_target_health = true
   }
+}
+
+# ── ACM Certificates ──────────────────────────────────────────────────────────
+
+resource "aws_acm_certificate" "primary" {
+  provider          = aws.primary
+  domain_name       = var.domain_name
+  validation_method = "DNS"
+  tags = { Project = var.app_name }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_acm_certificate" "dr" {
+  provider          = aws.dr
+  domain_name       = var.domain_name
+  validation_method = "DNS"
+  tags = { Project = var.app_name }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+# ── ACM DNS Validation Records ────────────────────────────────────────────────
+
+resource "aws_route53_record" "cert_validation" {
+  provider = aws.global
+  for_each = {
+    for dvo in aws_acm_certificate.primary.domain_validation_options : dvo.domain_name => {
+      name   = dvo.resource_record_name
+      type   = dvo.resource_record_type
+      record = dvo.resource_record_value
+    }
+  }
+  zone_id         = aws_route53_zone.main.zone_id
+  name            = each.value.name
+  type            = each.value.type
+  records         = [each.value.record]
+  ttl             = 60
+}
+
+resource "aws_acm_certificate_validation" "primary" {
+  provider                = aws.primary
+  certificate_arn         = aws_acm_certificate.primary.arn
+  validation_record_fqdns = [for r in aws_route53_record.cert_validation : r.fqdn]
+}
+
+resource "aws_acm_certificate_validation" "dr" {
+  provider                = aws.dr
+  certificate_arn         = aws_acm_certificate.dr.arn
+  validation_record_fqdns = [for r in aws_route53_record.cert_validation : r.fqdn]
 }

@@ -124,6 +124,7 @@ kubectl apply -f kubernetes-manifests-dr/deployments/blue-deployments/conversion
 kubectl apply -f kubernetes-manifests-dr/deployments/blue-deployments/wallet-service/
 kubectl apply -f kubernetes-manifests-dr/deployments/blue-deployments/withdrawal-service/
 kubectl apply -f kubernetes-manifests-dr/deployments/blue-deployments/workers/
+kubectl apply -f kubernetes-manifests-dr/deployments/blue-deployments/redis-service/
 kubectl apply -f kubernetes-manifests-dr/ingress.yaml
 kubectl apply -f kubernetes-manifests-dr/deployments/blue-deployments/frontend-service/
 kubectl apply -f kubernetes-manifests-dr/services/pod-services.yaml
