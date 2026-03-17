@@ -241,6 +241,7 @@ jobs:
         env:
           TF_VAR_admin_iam_arn: ${{ secrets.ADMIN_IAM_ARN }}
           TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
+          TF_VAR_domain_name: ${{ secrets.DOMAIN_NAME }}
         run: |
           DR_LAYERS=("03-iam-sgp" "04-eks-sgp" "02-data-sgp" "01-network-sgp")
           TARGET="${{ github.event.inputs.layer }}"
