@@ -553,50 +553,66 @@ createApp({
       }
     }
 
-    // ── POLLING for pending withdrawals + conversions ──
+
+// ── POLLING for pending withdrawals + conversions ──
+    let refreshTick = 0;
     function startPolling() {
       pollInterval = setInterval(async () => {
-        const hasPendingWds  = pendingWithdrawals.value.length > 0;
+        refreshTick++;
+        const hasPendingWds   = pendingWithdrawals.value.length > 0;
         const hasPendingConvs = pendingConversions.value.length > 0;
-        if (!hasPendingWds && !hasPendingConvs) return;
+        const doFullRefresh   = refreshTick % 6 === 0; // every 30s regardless of pending state
+
         try {
-          if (hasPendingWds) {
-            const wds = await api('GET', '/api/v1/withdrawals');
-            const fresh = Array.isArray(wds) ? wds.map(w => ({ ...w, direction: 'out' })) : [];
+          if (hasPendingWds || doFullRefresh) {
+            const [wds, recvWds] = await Promise.all([
+              api('GET', '/api/v1/withdrawals'),
+              api('GET', '/api/v1/withdrawals/received').catch(() => []),
+            ]);
+            const sentWds    = Array.isArray(wds)     ? wds.map(w => ({ ...w, direction: 'out' })) : [];
+            const inboundWds = Array.isArray(recvWds) ? recvWds.map(w => ({ ...w, direction: 'in' })) : [];
+            const freshAll   = [...sentWds, ...inboundWds].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
             let anyUpdated = false;
-            pendingWithdrawals.value = pendingWithdrawals.value.filter(pw => {
-              const updated = fresh.find(w => w.id === pw.id);
-              if (updated && !['pending', 'processing'].includes((updated.status || '').toLowerCase())) {
-                const st = (updated.status || '').toLowerCase();
-                showToast(`Transfer ${st}: ${pw.amount} ${pw.currency}`, st === 'completed' ? 'success' : 'error');
-                anyUpdated = true;
-                return false;
-              }
-              return true;
-            });
-            if (anyUpdated) {
-              allWithdrawals.value = fresh.map(w => ({ ...w, direction: 'out' }));
-              await loadWallets();
+            if (hasPendingWds) {
+              pendingWithdrawals.value = pendingWithdrawals.value.filter(pw => {
+                const updated = sentWds.find(w => w.id === pw.id);
+                if (updated && !['pending', 'processing'].includes((updated.status || '').toLowerCase())) {
+                  const st = (updated.status || '').toLowerCase();
+                  showToast(`Transfer ${st}: ${pw.amount} ${pw.currency}`, st === 'completed' ? 'success' : 'error');
+                  anyUpdated = true;
+                  return false;
+                }
+                return true;
+              });
             }
+            if (anyUpdated || doFullRefresh) {
+              allWithdrawals.value = freshAll;
+              if (anyUpdated) await loadWallets();
+            }
+            pendingWithdrawals.value = sentWds.filter(w => ['pending', 'processing'].includes((w.status || '').toLowerCase()));
           }
-          if (hasPendingConvs) {
+
+          if (hasPendingConvs || doFullRefresh) {
             const convs = await api('GET', '/api/v1/conversions');
             const fresh = Array.isArray(convs) ? convs : [];
             let anyUpdated = false;
-            pendingConversions.value = pendingConversions.value.filter(pc => {
-              const updated = fresh.find(c => c.id === pc.id);
-              if (updated && !['pending', 'processing'].includes((updated.status || '').toLowerCase())) {
-                const st = (updated.status || '').toLowerCase();
-                showToast(`Conversion ${st}: ${pc.from_amount} ${pc.from_currency} → ${pc.to_currency}`, st === 'completed' ? 'success' : 'error');
-                anyUpdated = true;
-                return false;
-              }
-              return true;
-            });
-            if (anyUpdated) {
-              allConversions.value = fresh;
-              await loadWallets();
+            if (hasPendingConvs) {
+              pendingConversions.value = pendingConversions.value.filter(pc => {
+                const updated = fresh.find(c => c.id === pc.id);
+                if (updated && !['pending', 'processing'].includes((updated.status || '').toLowerCase())) {
+                  const st = (updated.status || '').toLowerCase();
+                  showToast(`Conversion ${st}: ${pc.from_amount} ${pc.from_currency} → ${pc.to_currency}`, st === 'completed' ? 'success' : 'error');
+                  anyUpdated = true;
+                  return false;
+                }
+                return true;
+              });
             }
+            if (anyUpdated || doFullRefresh) {
+              allConversions.value = fresh;
+              if (anyUpdated) await loadWallets();
+            }
+            pendingConversions.value = fresh.filter(c => ['pending', 'processing'].includes((c.status || '').toLowerCase()));
           }
         } catch {}
       }, 5000);
