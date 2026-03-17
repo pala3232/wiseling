@@ -21,3 +21,12 @@ output "dynamodb_table_name" {
 output "ecr_repo_urls" {
   value = { for k, v in aws_ecr_repository.services : k => v.repository_url }
 }
+
+output "rds_arn" {
+  value       = aws_db_instance.wiseling.arn
+  description = "Used by 02-data-sgp to create the cross-region read replica"
+}
+
+output "rds_identifier" {
+  value = aws_db_instance.wiseling.identifier
+}

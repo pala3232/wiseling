@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: wiseling-sa
+  namespace: wiseling
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::359707702022:role/pod-role-sgp
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: wiseling-sa
+  namespace: kube-system
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::359707702022:role/pod-role-sgp

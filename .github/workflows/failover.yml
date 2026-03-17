@@ -1,0 +1,122 @@
+name: Failover to Singapore (DR)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_failover:
+        description: 'Type FAILOVER to confirm'
+        required: true
+        default: ''
+
+jobs:
+  failover:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.confirm_failover == 'FAILOVER' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-southeast-1
+
+      # ── Step 1: Promote read replica to standalone primary ─────────────────
+      - name: Promote RDS read replica
+        run: |
+          echo "Promoting read replica to standalone primary..."
+          aws rds promote-read-replica \
+            --db-instance-identifier wiseling-rds-replica-sgp \
+            --region ap-southeast-1
+
+          echo "Waiting for promotion to complete (this takes 3-5 minutes)..."
+          aws rds wait db-instance-available \
+            --db-instance-identifier wiseling-rds-replica-sgp \
+            --region ap-southeast-1
+
+          echo "Replica promoted successfully."
+
+      # ── Step 2: Get promoted RDS endpoint ─────────────────────────────────
+      - name: Get new RDS endpoint
+        id: rds
+        run: |
+          ENDPOINT=$(aws rds describe-db-instances \
+            --db-instance-identifier wiseling-rds-replica-sgp \
+            --region ap-southeast-1 \
+            --query 'DBInstances[0].Endpoint.Address' \
+            --output text)
+          echo "endpoint=$ENDPOINT" >> $GITHUB_OUTPUT
+          echo "New RDS endpoint: $ENDPOINT"
+
+      # ── Step 3: Update Secrets Manager with new writable endpoint ─────────
+      - name: Update db-urls secret in Singapore
+        run: |
+          DB_URL="postgresql+asyncpg://admin1:${{ secrets.DB_PASSWORD }}@${{ steps.rds.outputs.endpoint }}:5432/wiseling"
+          aws secretsmanager put-secret-value \
+            --secret-id wiseling/db-urls-sgp \
+            --secret-string "{
+              \"auth\":       \"$DB_URL\",
+              \"wallet\":     \"$DB_URL\",
+              \"conversion\": \"$DB_URL\",
+              \"withdrawal\":  \"$DB_URL\"
+            }" \
+            --region ap-southeast-1
+          echo "Secrets updated."
+
+      # ── Step 4: Sync JWT secret from primary to DR ────────────────────────
+      - name: Sync JWT secret to Singapore
+        run: |
+          JWT_VALUE=$(aws secretsmanager get-secret-value \
+            --secret-id wiseling-jwt-secret-key \
+            --region ap-southeast-2 \
+            --query SecretString \
+            --output text)
+          aws secretsmanager put-secret-value \
+            --secret-id wiseling-jwt-secret-key-sgp \
+            --secret-string "$JWT_VALUE" \
+            --region ap-southeast-1
+          echo "JWT secret synced."
+
+      # ── Step 5: Configure kubectl for Singapore cluster ───────────────────
+      - name: Configure kubectl for DR cluster
+        run: |
+          aws eks update-kubeconfig \
+            --name wiseling-eks-cluster-sgp \
+            --region ap-southeast-1
+
+      # ── Step 6: Restart pods to pick up new DB secret ─────────────────────
+      - name: Restart all deployments in wiseling namespace
+        run: |
+          kubectl rollout restart deployment -n wiseling
+          kubectl rollout status deployment -n wiseling --timeout=300s
+          echo "All pods restarted and healthy."
+
+      # ── Step 7: Verify health ──────────────────────────────────────────────
+      - name: Smoke test DR cluster
+        run: |
+          DR_ALB=$(kubectl get ingress wiseling-ingress -n wiseling \
+            -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+          echo "DR ALB: $DR_ALB"
+          for i in $(seq 1 10); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://$DR_ALB/api/v1/auth/health || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "Health check passed."
+              exit 0
+            fi
+            echo "Attempt $i: got $STATUS, retrying in 15s..."
+            sleep 15
+          done
+          echo "Health check failed after 10 attempts."
+          exit 1
+
+      # ── Step 8: Log failover event ─────────────────────────────────────────
+      - name: Log failover completion
+        if: success()
+        run: |
+          echo "======================================"
+          echo "FAILOVER COMPLETE"
+          echo "Time: $(date -u)"
+          echo "DR RDS endpoint: ${{ steps.rds.outputs.endpoint }}"
+          echo "Route 53 will have already switched traffic via health check."
+          echo "======================================"

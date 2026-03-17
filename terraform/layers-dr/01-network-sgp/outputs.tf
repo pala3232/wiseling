@@ -1,0 +1,8 @@
+output "vpc_id"                 { value = aws_vpc.main.id }
+output "all_public_subnet_ids"  { value = [aws_subnet.public.id, aws_subnet.public_2.id] }
+output "all_private_subnet_ids" { value = [aws_subnet.private.id, aws_subnet.private_2.id] }
+output "private_subnet_2_id"    { value = aws_subnet.private_2.id }
+output "eks_nodes_sg_id"        { value = aws_security_group.eks_nodes.id }
+output "eks_cluster_sg_id"      { value = aws_security_group.eks_cluster.id }
+output "rds_sg_id"              { value = aws_security_group.rds.id }
+output "private_route_table_id" { value = aws_route_table.private.id }

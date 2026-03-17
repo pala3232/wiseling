@@ -48,6 +48,7 @@ resource "aws_db_instance" "wiseling" {
   skip_final_snapshot    = true
   db_subnet_group_name   = aws_db_subnet_group.wiseling.name
   vpc_security_group_ids = [data.terraform_remote_state.network.outputs.rds_sg_id]
+  backup_retention_period = 1
   tags = {
     Name    = "wiseling-rds-instance"
     Project = var.app_name

@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  namespace: wiseling
+spec:
+  selector:
+    app: auth-service
+  ports:
+    - port: 8000
+      targetPort: 8000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wallet-service
+  namespace: wiseling
+spec:
+  selector:
+    app: wallet-service
+  ports:
+    - port: 8001
+      targetPort: 8001
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: conversion-service
+  namespace: wiseling
+spec:
+  selector:
+    app: conversion-service
+  ports:
+    - port: 8002
+      targetPort: 8002
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: withdrawal-service
+  namespace: wiseling
+spec:
+  selector:
+    app: withdrawal-service
+  ports:
+    - port: 8003
+      targetPort: 8003
