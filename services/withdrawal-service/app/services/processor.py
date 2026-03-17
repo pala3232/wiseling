@@ -32,7 +32,6 @@ async def process_withdrawal(withdrawal_id: str):
         await db.commit()
         print(f"[processor] {withdrawal_id} → PROCESSING")
 
-        # Simulate payment rail — replace with real SEPA/SWIFT call here
         await asyncio.sleep(2)
 
         w.status = "COMPLETED"

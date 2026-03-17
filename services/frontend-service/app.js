@@ -253,11 +253,11 @@ createApp({
         ]);
         wallets.value = Array.isArray(ws) ? ws : [];
         allConversions.value = Array.isArray(convs) ? convs : [];
-        const sentWds = Array.isArray(wds) ? wds : [];
+        const sentWds = Array.isArray(wds) ? wds.map(w => ({ ...w, direction: 'out' })) : [];
         const inboundWds = Array.isArray(recvWds) ? recvWds.map(w => ({ ...w, direction: 'in' })) : [];
         allWithdrawals.value = [...sentWds, ...inboundWds].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         allTransfers.value = Array.isArray(transfers) ? transfers : [];
-        pendingWithdrawals.value = sentWds.filter(w => ['pending', 'processing'].includes(w.status));
+        pendingWithdrawals.value = sentWds.filter(w => ['pending', 'processing'].includes((w.status || '').toLowerCase()));
       } catch (e) {
         showToast(e.message, 'error');
       }
@@ -308,12 +308,14 @@ createApp({
         proofData.value = {
           type: 'conversion',
           id: res.id || genUID(),
-          from_amount: res.from_amount || convPending.value.amount,
-          from_currency: res.from_currency || convPending.value.from_currency,
+          from_amount: res.from_amount,
+          from_currency: res.from_currency,
           to_amount: res.to_amount,
-          to_currency: res.to_currency || convPending.value.to_currency,
-          rate: convPending.value.rate,
-          fee: '0.30%',
+          to_currency: res.to_currency,
+          rate: res.rate,
+          fee_amount: res.fee,
+          fee_currency: res.from_currency,
+          status: res.status,
           created_at: res.created_at || new Date().toISOString(),
         };
         showProof.value = true;
@@ -382,12 +384,16 @@ createApp({
         proofData.value = {
           type: 'transfer',
           id: res.id || genUID(),
+          direction: 'out',
+          transfer_type: res.transfer_type || 'transfer',
           to_email: wdRecipient.value?.email || '—',
           to_account: wdAccountNumber.value,
-          amount: parseFloat(wdAmount.value),
-          currency: wdCurrency.value,
+          recipient_id: res.recipient_id || null,
+          amount: res.amount || parseFloat(wdAmount.value),
+          net_amount: res.net_amount || parseFloat(wdAmount.value),
+          currency: res.currency || wdCurrency.value,
+          fee: res.fee ?? 0,
           status: res.status || 'completed',
-          fee: 'Free',
           created_at: res.created_at || new Date().toISOString(),
         };
         showProof.value = true;
@@ -402,7 +408,7 @@ createApp({
         await loadOverview();
 
         // Poll if pending
-        if (res.status === 'pending' || res.status === 'processing') {
+        if (['pending','processing'].includes((res.status || '').toLowerCase())) {
           pendingWithdrawals.value.push(res);
         }
       } catch (err) {
@@ -437,12 +443,52 @@ createApp({
           api('GET', '/api/v1/withdrawals/received').catch(() => []),
         ]);
         allConversions.value = Array.isArray(convs) ? convs : [];
-        const sentWds = Array.isArray(wds) ? wds : [];
+        const sentWds = Array.isArray(wds) ? wds.map(w => ({ ...w, direction: 'out' })) : [];
         const inboundWds = Array.isArray(recvWds) ? recvWds.map(w => ({ ...w, direction: 'in' })) : [];
         allWithdrawals.value = [...sentWds, ...inboundWds].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         allTransfers.value = Array.isArray(transfers) ? transfers : [];
       } catch (e) { showToast(e.message, 'error'); }
       historyLoading.value = false;
+    }
+
+    // ── OPEN PROOF FROM HISTORY ROW ──
+    function openProofFromRow(item) {
+      if (item._type === 'conversion') {
+        proofData.value = {
+          type: 'conversion',
+          id: item.id || '—',
+          from_amount: item.from_amount,
+          from_currency: item.from_currency,
+          to_amount: item.to_amount,
+          to_currency: item.to_currency,
+          rate: item.rate,
+          fee_amount: item.fee,
+          fee_currency: item.from_currency,
+          status: item.status,
+          created_at: item.created_at,
+        };
+      } else {
+        // withdrawal or transfer — WithdrawalResponse has: id, currency, amount, fee,
+        // net_amount, recipient_id, transfer_type, status, created_at, direction (frontend-added)
+        const isReceived = item.direction === 'in';
+        proofData.value = {
+          type: 'transfer',
+          id: item.id || '—',
+          direction: isReceived ? 'in' : 'out',
+          transfer_type: item.transfer_type || 'transfer',
+          // recipient info not stored on the record — show recipient_id as fallback
+          to_email: item.to_email || '—',
+          to_account: item.to_account_number || '—',
+          recipient_id: item.recipient_id || null,
+          amount: item.amount,
+          net_amount: item.net_amount,
+          currency: item.currency,
+          fee: item.fee,
+          status: item.status || 'completed',
+          created_at: item.created_at,
+        };
+      }
+      showProof.value = true;
     }
 
     // ── PROOF OF PAYMENT HELPERS ──
@@ -506,8 +552,9 @@ createApp({
           let anyUpdated = false;
           pendingWithdrawals.value = pendingWithdrawals.value.filter(pw => {
             const updated = fresh.find(w => w.id === pw.id);
-            if (updated && !['pending', 'processing'].includes(updated.status)) {
-              showToast(`Transfer ${updated.status}: ${pw.amount} ${pw.currency}`, updated.status === 'completed' ? 'success' : 'error');
+            if (updated && !['pending', 'processing'].includes((updated.status || '').toLowerCase())) {
+              const st = (updated.status || '').toLowerCase();
+              showToast(`Transfer ${st}: ${pw.amount} ${pw.currency}`, st === 'completed' ? 'success' : 'error');
               anyUpdated = true;
               return false;
             }
@@ -535,7 +582,7 @@ createApp({
         sseSource.addEventListener('balance_update', async () => { await loadWallets(); });
         sseSource.addEventListener('withdrawal_update', async (e) => {
           const data = JSON.parse(e.data);
-          showToast(`Withdrawal ${data.status}`, data.status === 'completed' ? 'success' : 'error');
+          const _st = (data.status||'').toLowerCase(); showToast(`Withdrawal ${_st}`, _st === 'completed' ? 'success' : 'error');
           await loadOverview();
         });
       } catch {}
@@ -576,11 +623,13 @@ createApp({
 
     function txStatusClass(status) {
       const map = { completed:'badge-success', pending:'badge-pending', failed:'badge-failed', processing:'badge-processing' };
-      return map[status] || 'badge-pending';
+      return map[(status || '').toLowerCase()] || 'badge-pending';
     }
 
     function txStatusLabel(status) {
-      return status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Pending';
+      if (!status) return 'Pending';
+      const s = status.toLowerCase();
+      return s.charAt(0).toUpperCase() + s.slice(1);
     }
 
     // Env info bar: detect wrapping
@@ -623,7 +672,7 @@ createApp({
       wdAccountNumber, wdCurrency, wdAmount, wdLoading, wdError, wdResult,
       wdRecipient, wdRecipientLoading, onAccountInput, myAccountNumber, copyAccountNumber,
       wdWalletBalance, initiateWithdraw, confirmWithdraw, showConfirmModal, confirmLoading,
-      showProof, proofData, copyProofRef, viewProofInHistory, dismissProof, fmtProofDate,
+      showProof, proofData, copyProofRef, viewProofInHistory, dismissProof, fmtProofDate, openProofFromRow,
       recentRecipients, fillRecipient,
       // history
       historyFilter, historyLoading, filteredHistory, loadHistory,
@@ -689,16 +738,21 @@ createApp({
     <div class="modal proof-modal">
       <div class="proof-header">
         <div class="proof-check">&#10003;</div>
-        <div class="proof-title">{{ proofData.type === 'transfer' ? 'Transfer Sent' : 'Conversion Complete' }}</div>
-        <div class="proof-sub">{{ proofData.type === 'transfer' ? 'Your funds have been sent successfully' : 'Your wallets have been updated' }}</div>
+        <div class="proof-title">{{ proofData.type === 'conversion' ? 'Conversion Complete' : (proofData.direction === 'in' ? 'Transfer Received' : 'Transfer Sent') }}</div>
+        <div class="proof-sub">{{ proofData.type === 'conversion' ? 'Your wallets have been updated' : (proofData.direction === 'in' ? 'Funds received into your wallet' : 'Your funds have been sent successfully') }}</div>
       </div>
       <template v-if="proofData.type === 'transfer'">
-        <div class="proof-amount">{{ fmt(proofData.amount, proofData.currency) }} <span class="proof-currency">{{ proofData.currency }}</span></div>
+        <div class="proof-amount">
+          <span :style="proofData.direction==='in' ? 'color:var(--primary)' : 'color:#ef4444'">{{ proofData.direction==='in' ? '+' : '−' }}</span>{{ fmt(proofData.net_amount ?? proofData.amount, proofData.currency) }} <span class="proof-currency">{{ proofData.currency }}</span>
+        </div>
         <div class="modal-detail">
-          <div class="modal-row"><span class="modal-row-label">To</span><span class="modal-row-val">{{ proofData.to_email }}</span></div>
-          <div class="modal-row"><span class="modal-row-label">Account</span><span class="modal-row-val" style="font-family:var(--mono);font-size:0.8rem">{{ proofData.to_account }}</span></div>
+          <div class="modal-row"><span class="modal-row-label">Direction</span><span class="modal-row-val">{{ proofData.direction==='in' ? 'Received' : 'Sent' }}</span></div>
+          <div v-if="proofData.direction==='out'" class="modal-row"><span class="modal-row-label">Recipient</span><span class="modal-row-val">{{ proofData.to_email !== '—' ? proofData.to_email : (proofData.recipient_id || '—') }}</span></div>
+          <div v-if="proofData.direction==='out' && proofData.to_account !== '—'" class="modal-row"><span class="modal-row-label">Account</span><span class="modal-row-val" style="font-family:var(--mono);font-size:0.8rem">{{ proofData.to_account }}</span></div>
+          <div class="modal-row"><span class="modal-row-label">Amount</span><span class="modal-row-val">{{ fmt(proofData.amount, proofData.currency) }} {{ proofData.currency }}</span></div>
+          <div class="modal-row"><span class="modal-row-label">Fee</span><span class="modal-row-val">{{ proofData.fee && parseFloat(proofData.fee) > 0 ? fmt(proofData.fee, proofData.currency) + ' ' + proofData.currency : 'Free' }}</span></div>
+          <div class="modal-row"><span class="modal-row-label">Net amount</span><span class="modal-row-val" style="color:var(--primary)">{{ fmt(proofData.net_amount ?? proofData.amount, proofData.currency) }} {{ proofData.currency }}</span></div>
           <div class="modal-row"><span class="modal-row-label">Status</span><span :class="['badge', txStatusClass(proofData.status)]">{{ txStatusLabel(proofData.status) }}</span></div>
-          <div class="modal-row"><span class="modal-row-label">Fee</span><span class="modal-row-val">{{ proofData.fee }}</span></div>
           <div class="modal-row"><span class="modal-row-label">Date &amp; Time</span><span class="modal-row-val" style="font-family:var(--mono);font-size:0.75rem">{{ fmtProofDate(proofData.created_at) }}</span></div>
           <div class="modal-row"><span class="modal-row-label">Reference</span><span class="modal-row-val proof-ref" @click="copyProofRef" title="Click to copy">{{ proofData.id }}</span></div>
         </div>
@@ -707,8 +761,10 @@ createApp({
         <div class="proof-amount">+{{ fmt(proofData.to_amount, proofData.to_currency) }} <span class="proof-currency">{{ proofData.to_currency }}</span></div>
         <div class="modal-detail">
           <div class="modal-row"><span class="modal-row-label">From</span><span class="modal-row-val">{{ fmt(proofData.from_amount, proofData.from_currency) }} {{ proofData.from_currency }}</span></div>
+          <div class="modal-row"><span class="modal-row-label">To</span><span class="modal-row-val" style="color:var(--primary)">{{ fmt(proofData.to_amount, proofData.to_currency) }} {{ proofData.to_currency }}</span></div>
           <div class="modal-row"><span class="modal-row-label">Rate</span><span class="modal-row-val" style="font-family:var(--mono);font-size:0.78rem">1 {{ proofData.from_currency }} = {{ proofData.rate ? parseFloat(proofData.rate).toLocaleString('en-US',{maximumFractionDigits:6}) : '—' }} {{ proofData.to_currency }}</span></div>
-          <div class="modal-row"><span class="modal-row-label">Fee</span><span class="modal-row-val">{{ proofData.fee }}</span></div>
+          <div class="modal-row"><span class="modal-row-label">Fee</span><span class="modal-row-val">{{ proofData.fee_amount ? fmt(proofData.fee_amount, proofData.fee_currency) + ' ' + proofData.fee_currency : '—' }}</span></div>
+          <div class="modal-row"><span class="modal-row-label">Status</span><span :class="['badge', txStatusClass(proofData.status)]">{{ txStatusLabel(proofData.status) }}</span></div>
           <div class="modal-row"><span class="modal-row-label">Date &amp; Time</span><span class="modal-row-val" style="font-family:var(--mono);font-size:0.75rem">{{ fmtProofDate(proofData.created_at) }}</span></div>
           <div class="modal-row"><span class="modal-row-label">Reference</span><span class="modal-row-val proof-ref" @click="copyProofRef" title="Click to copy">{{ proofData.id }}</span></div>
         </div>
@@ -1033,9 +1089,9 @@ createApp({
           <div v-if="historyLoading" class="loading"><div class="spinner"></div>Loading...</div>
           <div v-else-if="!filteredHistory.length" class="empty-state">No transactions found</div>
           <table v-else>
-            <thead><tr><th>Type</th><th>Details</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
+            <thead><tr><th>Type</th><th>Details</th><th>Amount</th><th>Status</th><th>Date</th><th></th></tr></thead>
             <tbody>
-              <tr v-for="item in filteredHistory" :key="item.id + item._type">
+              <tr v-for="item in filteredHistory" :key="item.id + item._type" class="tx-row" @click="openProofFromRow(item)" title="View receipt">
                 <td>
                   <span v-if="item._type==='conversion'" class="badge badge-type">Conversion</span>
                   <span v-else-if="item._type==='transfer'" class="badge badge-type" style="background:rgba(139,92,246,0.15);color:#a78bfa;">Transfer</span>
@@ -1047,18 +1103,19 @@ createApp({
                   <span v-else>{{ item.currency }} withdrawal</span>
                 </td>
                 <td :style="item._type==='transfer' ? (item.direction==='out' ? 'color:#ef4444;font-weight:600' : 'color:var(--primary);font-weight:600') : 'color:var(--primary);font-weight:600'">
-                  <span v-if="item._type==='transfer'">{{ item.direction==='out' ? '−' : '+' }}{{ item.amount }} {{ item.currency }}</span>
-                  <span v-else-if="item._type==='conversion'">{{ item.from_amount||item.amount }} {{ item.from_currency }}</span>
-                  <span v-else>{{ item.amount }} {{ item.currency }}</span>
+                  <span v-if="item._type==='transfer'">{{ item.direction==='out' ? '−' : '+' }}{{ fmt(item.amount, item.currency) }} {{ item.currency }}</span>
+                  <span v-else-if="item._type==='conversion'">{{ fmt(item.from_amount||item.amount, item.from_currency) }} {{ item.from_currency }}</span>
+                  <span v-else>{{ fmt(item.amount, item.currency) }} {{ item.currency }}</span>
                 </td>
                 <td>
                   <span v-if="item._type==='conversion'" class="badge badge-success">Completed</span>
                   <template v-else>
                     <span :class="['badge', txStatusClass(item.status)]">{{ txStatusLabel(item.status) }}</span>
-                    <span v-if="['pending','processing'].includes(item.status)" class="pending-spinner" style="margin-left:6px;display:inline-block;"></span>
+                    <span v-if="['pending','processing'].includes((item.status||'').toLowerCase())" class="pending-spinner" style="margin-left:6px;display:inline-block;"></span>
                   </template>
                 </td>
                 <td style="font-family:var(--mono);font-size:0.75rem;color:var(--ink-soft)">{{ date(item.created_at) }}</td>
+                <td class="tx-receipt-hint">&#x1F9FE;</td>
               </tr>
             </tbody>
           </table>

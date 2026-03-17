@@ -408,3 +408,17 @@ td.strong{color:var(--ink);font-weight:600;}
   word-break: break-all;
 }
 .proof-ref:hover { color: var(--primary-dark) !important; }
+
+/* ── CLICKABLE HISTORY ROWS ── */
+.tx-row { cursor: pointer; }
+.tx-row:hover { background: rgba(62,207,142,0.05) !important; }
+.tx-receipt-hint {
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  opacity: 0;
+  text-align: right;
+  padding-right: 1.25rem !important;
+  transition: opacity 0.15s;
+  width: 32px;
+}
+.tx-row:hover .tx-receipt-hint { opacity: 0.6; }
