@@ -118,11 +118,26 @@ resource "aws_iam_policy" "lb_controller" {
   tags   = { Project = var.app_name, Region = "sgp" }
 }
 
-resource "aws_iam_role_policy_attachment" "attach_secrets"    { role = aws_iam_role.pod_role.name; policy_arn = aws_iam_policy.secrets.arn }
-resource "aws_iam_role_policy_attachment" "attach_cloudwatch" { role = aws_iam_role.pod_role.name; policy_arn = aws_iam_policy.cloudwatch.arn }
-resource "aws_iam_role_policy_attachment" "attach_dynamodb"   { role = aws_iam_role.pod_role.name; policy_arn = aws_iam_policy.dynamodb.arn }
-resource "aws_iam_role_policy_attachment" "attach_sqs"        { role = aws_iam_role.pod_role.name; policy_arn = aws_iam_policy.sqs.arn }
-resource "aws_iam_role_policy_attachment" "attach_lb"         { role = aws_iam_role.pod_role.name; policy_arn = aws_iam_policy.lb_controller.arn }
+resource "aws_iam_role_policy_attachment" "attach_secrets"{ 
+  role = aws_iam_role.pod_role.name
+ policy_arn = aws_iam_policy.secrets.arn 
+ }
+resource "aws_iam_role_policy_attachment" "attach_cloudwatch"{
+  role = aws_iam_role.pod_role.name
+  policy_arn = aws_iam_policy.cloudwatch.arn 
+  }
+resource "aws_iam_role_policy_attachment" "attach_dynamodb"{ 
+  role = aws_iam_role.pod_role.name
+  policy_arn = aws_iam_policy.dynamodb.arn 
+  }
+resource "aws_iam_role_policy_attachment" "attach_sqs"{
+   role = aws_iam_role.pod_role.name
+    policy_arn = aws_iam_policy.sqs.arn 
+    }
+resource "aws_iam_role_policy_attachment" "attach_lb"{ 
+  role = aws_iam_role.pod_role.name
+  policy_arn = aws_iam_policy.lb_controller.arn
+}
 
 # Karpenter role
 

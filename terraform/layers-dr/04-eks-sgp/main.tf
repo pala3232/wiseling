@@ -135,7 +135,10 @@ resource "kubernetes_annotations" "aws_node" {
   depends_on  = [aws_eks_cluster.main]
   api_version = "v1"
   kind        = "ServiceAccount"
-  metadata { name = "aws-node"; namespace = "kube-system" }
+  metadata { 
+    name = "aws-node"
+    namespace = "kube-system"
+  }
   lifecycle { ignore_changes = all }
   annotations = { "eks.amazonaws.com/role-arn" = aws_iam_role.vpc_cni.arn }
 }
