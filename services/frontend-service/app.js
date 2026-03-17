@@ -148,12 +148,11 @@ createApp({
     });
 
     const recentActivity = computed(() => {
-      const items = [
-        ...allConversions.value.slice(-5).map(c => ({ ...c, _type: 'conversion' })),
-        ...allWithdrawals.value.slice(-5).map(w => ({ ...w, _type: 'withdrawal' })),
-        ...allTransfers.value.slice(-5).map(t => ({ ...t, _type: 'transfer' })),
+      return [
+        ...allConversions.value.map(c => ({ ...c, _type: 'conversion' })),
+        ...allWithdrawals.value.map(w => ({ ...w, _type: 'withdrawal' })),
+        ...allTransfers.value.map(t => ({ ...t, _type: 'transfer' })),
       ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 6);
-      return items;
     });
 
     const greeting = computed(() => {
@@ -627,6 +626,19 @@ createApp({
       if (sseSource) { sseSource.close(); sseSource = null; sseConnected.value = false; }
     }
 
+    // ── SYNC PROOF MODAL STATUS WHEN POLLING UPDATES ──
+    watch([allConversions, allWithdrawals], () => {
+      if (!showProof.value || !proofData.value?.id) return;
+      const id = proofData.value.id;
+      if (proofData.value.type === 'conversion') {
+        const updated = allConversions.value.find(c => c.id === id);
+        if (updated) proofData.value = { ...proofData.value, status: updated.status };
+      } else {
+        const updated = allWithdrawals.value.find(w => w.id === id);
+        if (updated) proofData.value = { ...proofData.value, status: updated.status };
+      }
+    });
+
     // ── LIFECYCLE ──
     onMounted(async () => {
       if (token.value) enterDashboard();
@@ -986,7 +998,7 @@ createApp({
             <table v-else>
               <thead><tr><th>Type</th><th>Details</th><th>Amount</th><th>Status</th></tr></thead>
               <tbody>
-                <tr v-for="item in recentActivity" :key="item.id">
+                <tr v-for="item in recentActivity" :key="item.id" class="tx-row" @click="openProofFromRow(item)" title="View receipt">
                   <td>
                     <span v-if="item._type==='conversion'" class="badge badge-type">Conversion</span>
                     <span v-else-if="item._type==='transfer'" class="badge badge-type" style="background:rgba(139,92,246,0.15);color:#a78bfa;">Transfer</span>
@@ -1003,8 +1015,7 @@ createApp({
                     <span v-else>{{ fmt(item.amount, item.currency) }} {{ item.currency }}</span>
                   </td>
                   <td>
-                    <span v-if="item._type==='conversion'" class="badge badge-success">Completed</span>
-                    <span v-else :class="['badge', txStatusClass(item.status)]">{{ txStatusLabel(item.status) }}</span>
+                    <span :class="['badge', txStatusClass(item.status)]">{{ txStatusLabel(item.status) }}</span>
                   </td>
                 </tr>
               </tbody>
@@ -1044,15 +1055,19 @@ createApp({
           </div>
           <div class="rate-display"><div class="rate-dot"></div><span>{{ currentRateText }}</span></div>
           <form @submit.prevent="handleConvert">
-            <div class="form-row">
-              <div class="form-group">
+            <div class="form-row" style="align-items:flex-end">
+              <div class="form-group" style="display:flex;flex-direction:column;">
                 <label class="form-label">From Currency</label>
-                <div v-if="fromWalletBalance" style="font-family:var(--mono);font-size:0.68rem;color:var(--ink-soft);margin-bottom:4px;">Balance: {{ fromWalletBalance }}</div>
+                <div style="font-family:var(--mono);font-size:0.68rem;color:var(--ink-soft);margin-bottom:4px;min-height:1.1em;">
+                  <span v-if="fromWalletBalance">Balance: {{ fromWalletBalance }}</span>
+                </div>
                 <select class="select-input" v-model="convFrom">
                   <option value="USD">USD</option><option value="EUR">EUR</option><option value="GBP">GBP</option><option value="BTC">BTC</option><option value="ETH">ETH</option>
                 </select>
               </div>
-              <div class="form-group"><label class="form-label">To Currency</label>
+              <div class="form-group" style="display:flex;flex-direction:column;">
+                <label class="form-label">To Currency</label>
+                <div style="min-height:1.1em;margin-bottom:4px;"></div>
                 <select class="select-input" v-model="convTo">
                   <option value="EUR">EUR</option><option value="USD">USD</option><option value="GBP">GBP</option><option value="BTC">BTC</option><option value="ETH">ETH</option>
                 </select>
