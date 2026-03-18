@@ -10,14 +10,6 @@ output "db_urls_secret_arn" {
   value = aws_secretsmanager_secret.db_urls_sgp.arn
 }
 
-output "sqs_conversions_primary_url" {
-  value = aws_sqs_queue.conversions_primary.url
-}
-
-output "sqs_withdrawals_primary_url" {
-  value = aws_sqs_queue.withdrawals_primary.url
-}
-
 output "sqs_conversions_dr_url" {
   value = aws_sqs_queue.conversions_dr.url
 }
