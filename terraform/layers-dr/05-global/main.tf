@@ -41,10 +41,10 @@ resource "aws_route53_zone" "main" {
 resource "aws_route53_health_check" "primary" {
   provider          = aws.global
   fqdn              = var.primary_alb_dns
-  port              = 80
-  type              = "HTTP"
-  # port = 443        SWITCH TO THIS PORT AFTER YOU DEPLOYED THE ACM CERT AND APPLIED PORT 80.
-  # type = "HTTPS"    SWITCH TO THIS PORT AFTER YOU DEPLOYED THE ACM CERT AND APPLIED PORT 80.
+  # port              = 80
+  # type              = "HTTP"
+  port = 443        # SWITCH TO THIS PORT AFTER YOU DEPLOYED THE ACM CERT AND APPLIED PORT 80.
+  type = "HTTPS"    # SWITCH TO THIS PORT AFTER YOU DEPLOYED THE ACM CERT AND APPLIED PORT 80.
   resource_path     = "/api/v1/auth/health"
   failure_threshold = 3
   request_interval  = 30
@@ -57,10 +57,10 @@ resource "aws_route53_health_check" "primary" {
 resource "aws_route53_health_check" "dr" {
   provider          = aws.global
   fqdn              = var.dr_alb_dns
-  port              = 80
-  type              = "HTTP"
-  # port = 443        SWITCH TO THIS PORT AFTER YOU DEPLOYED THE ACM CERT AND APPLIED PORT 80.
-  # type = "HTTPS"    SWITCH TO THIS PORT AFTER YOU DEPLOYED THE ACM CERT AND APPLIED PORT 80.
+  # port              = 80     SWITCH TO THIS PORT AFTER YOU DEPLOYED THE ACM CERT AND APPLIED PORT 80.
+  # type              = "HTTP" SWITCH TO THIS PORT AFTER YOU DEPLOYED THE ACM CERT AND APPLIED PORT 80.
+  port = 443        #
+  type = "HTTPS"    #
   resource_path     = "/api/v1/auth/health"
   failure_threshold = 3
   request_interval  = 30
