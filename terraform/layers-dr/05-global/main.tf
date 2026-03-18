@@ -104,6 +104,7 @@ resource "aws_route53_record" "dr" {
   name            = var.domain_name
   type            = "A"
   set_identifier  = "dr"
+  health_check_id = aws_route53_health_check.dr.id
   failover_routing_policy {
     type = "SECONDARY"
   }
