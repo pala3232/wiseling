@@ -24,3 +24,4 @@ terraform/create-sqs/.terraform.lock.hcl
 terraform/create-registry/.terraform.lock.hcl
 terraform/jwt-secret-key/.terraform.lock.hcl
 terraform/create-dynamodb/.terraform.lock.hcl
+scripts/observability/values.yaml

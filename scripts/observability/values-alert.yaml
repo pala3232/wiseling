@@ -1,0 +1,181 @@
+alertmanager:
+  config:
+    global:
+      resolve_timeout: 5m
+      slack_api_url: 'your-url'
+
+    route:
+      group_by: ['alertname', 'namespace']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 12h
+      receiver: slack-alerts
+      routes:
+        - match:
+            severity: critical
+          receiver: slack-critical
+          continue: true
+        - match:
+            severity: warning
+          receiver: slack-alerts
+
+    receivers:
+      - name: slack-alerts
+        slack_configs:
+          - channel: 'your-channel'
+            text: >-
+              {{ range .Alerts }}
+              *Alert:* {{ .Annotations.summary }}
+              *Namespace:* {{ .Labels.namespace }}
+              *Severity:* {{ .Labels.severity }}
+              *Description:* {{ .Annotations.description }}
+              {{ end }}
+
+      - name: slack-critical
+        slack_configs:
+          - channel: 'your-channel'
+            send_resolved: true
+            title: 'CRITICAL: {{ .GroupLabels.alertname }}'
+            text: >-
+              {{ range .Alerts }}
+              *Alert:* {{ .Annotations.summary }}
+              *Namespace:* {{ .Labels.namespace }}
+              *Description:* {{ .Annotations.description }}
+              {{ end }}
+
+    inhibit_rules:
+      - source_match:
+          severity: critical
+        target_match:
+          severity: warning
+        equal: ['alertname', 'namespace']
+
+prometheus:
+  prometheusSpec:
+    retention: 15d
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    additionalScrapeConfigs:
+      - job_name: 'wiseling/auth-service'
+        static_configs:
+          - targets: ['auth-service.wiseling.svc.cluster.local:8000']
+        metrics_path: '/metrics'
+
+      - job_name: 'wiseling/wallet-service'
+        static_configs:
+          - targets: ['wallet-service.wiseling.svc.cluster.local:8001']
+        metrics_path: '/metrics'
+
+      - job_name: 'wiseling/conversion-service'
+        static_configs:
+          - targets: ['conversion-service.wiseling.svc.cluster.local:8002']
+        metrics_path: '/metrics'
+
+      - job_name: 'wiseling/withdrawal-service'
+        static_configs:
+          - targets: ['withdrawal-service.wiseling.svc.cluster.local:8003']
+        metrics_path: '/metrics'
+
+# Custom alerts for Wiseling services
+additionalPrometheusRulesMap:
+  wiseling-alerts:
+    groups:
+      - name: wiseling.pods
+        rules:
+          - alert: PodCrashLooping
+            expr: rate(kube_pod_container_status_restarts_total{namespace="wiseling"}[5m]) > 0
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Pod {{ $labels.pod }} is crash looping"
+              description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} has restarted {{ $value }} times in the last 5 minutes."
+
+          - alert: PodNotReady
+            expr: kube_pod_status_ready{namespace="wiseling", condition="true"} == 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Pod {{ $labels.pod }} is not ready"
+              description: "Pod {{ $labels.pod }} in namespace wiseling has been not ready for 5 minutes."
+
+          - alert: DeploymentReplicasMismatch
+            expr: kube_deployment_spec_replicas{namespace="wiseling"} != kube_deployment_status_available_replicas{namespace="wiseling"}
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Deployment {{ $labels.deployment }} has mismatched replicas"
+              description: "Deployment {{ $labels.deployment }} expected {{ $value }} replicas but has fewer available."
+
+      - name: wiseling.services
+        rules:
+          - alert: WalletServiceDown
+            expr: up{job="wiseling/wallet-service"} == 0
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Wallet service is down"
+              description: "The wallet-service has been unreachable for more than 1 minute."
+
+          - alert: AuthServiceDown
+            expr: up{job="wiseling/auth-service"} == 0
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Auth service is down"
+              description: "The auth-service has been unreachable for more than 1 minute."
+
+          - alert: WithdrawalServiceDown
+            expr: up{job="wiseling/withdrawal-service"} == 0
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Withdrawal service is down"
+              description: "The withdrawal-service has been unreachable for more than 1 minute."
+
+          - alert: ConversionServiceDown
+            expr: up{job="wiseling/conversion-service"} == 0
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Conversion service is down"
+              description: "The conversion-service has been unreachable for more than 1 minute."
+
+      - name: wiseling.resources
+        rules:
+          - alert: HighMemoryUsage
+            expr: container_memory_usage_bytes{namespace="wiseling"} / container_spec_memory_limit_bytes{namespace="wiseling"} > 0.85
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High memory usage in {{ $labels.pod }}"
+              description: "Container {{ $labels.container }} in pod {{ $labels.pod }} is using more than 85% of its memory limit."
+
+          - alert: HighCPUUsage
+            expr: rate(container_cpu_usage_seconds_total{namespace="wiseling"}[5m]) / container_spec_cpu_quota{namespace="wiseling"} * 100000 > 80
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High CPU usage in {{ $labels.pod }}"
+              description: "Container {{ $labels.container }} in pod {{ $labels.pod }} is using more than 80% CPU."
+
+grafana:
+  enabled: true
+  adminPassword: pala3105
+  grafana.ini:
+    server:
+      root_url: "%(protocol)s://%(domain)s/grafana"
+
+nodeExporter:
+  enabled: true
+
+kubeStateMetrics:
+  enabled: true
