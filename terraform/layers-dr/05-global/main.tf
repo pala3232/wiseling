@@ -48,6 +48,7 @@ resource "aws_route53_health_check" "primary" {
   resource_path     = "/api/v1/auth/health"
   failure_threshold = 3
   request_interval  = 30
+  enable_sni = true
   tags = {
     Name    = "${var.app_name}-primary-hc"
     Project = var.app_name
@@ -64,6 +65,7 @@ resource "aws_route53_health_check" "dr" {
   resource_path     = "/api/v1/auth/health"
   failure_threshold = 3
   request_interval  = 30
+  enable_sni = true
   tags = {
     Name    = "${var.app_name}-dr-hc"
     Project = var.app_name
@@ -100,7 +102,6 @@ resource "aws_route53_record" "dr" {
   name            = var.domain_name
   type            = "A"
   set_identifier  = "dr"
-
   failover_routing_policy {
     type = "SECONDARY"
   }
