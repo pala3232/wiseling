@@ -398,6 +398,4 @@ td.strong{color:var(--ink);font-weight:600;}
   /* ── MOBILE NAV ── */
   .mobile-nav{display:flex;}
 
-  /* ── ENV FOOTER ── */
-  .env-info-footer{display:none;}
 }

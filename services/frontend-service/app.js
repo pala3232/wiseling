@@ -228,14 +228,11 @@ createApp({
       localStorage.removeItem('wsl_email');
       stopSSE();
       stopPolling();
-      document.getElementById('env-info-footer').style.display = 'none';
     }
 
     // ── DASHBOARD INIT ──
     async function enterDashboard() {
     setTimeout(() => window.scrollTo({ top: 0, behavior: 'instant' }), 0);
-    const footer = document.getElementById('env-info-footer');
-    if (footer) footer.style.display = '';
     await loadRates();
     await loadOverview();
     loadMyAccountNumber();
