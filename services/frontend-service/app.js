@@ -883,10 +883,6 @@ createApp({
           </div>
         </div>
       </div>
-      <div class="banner-row">
-        <span style="color:var(--primary);flex-shrink:0;">ⓘ</span>
-        When sending money, we now verify recipient account numbers in real-time before any transfer is processed.
-      </div>
     </header>
 
     <div class="subnav">
@@ -926,7 +922,8 @@ createApp({
               No transactions yet
               <div class="empty-state-hint">Convert or send money to get started</div>
             </div>
-            <table v-else>
+            <div v-else style="overflow-x:auto;">
+            <table>
               <thead><tr><th>Type</th><th>Details</th><th>Amount</th><th>Status</th></tr></thead>
               <tbody>
                 <tr v-for="item in recentActivity" :key="item.id" class="tx-row" @click="openProofFromRow(item)" title="View receipt" style="cursor:pointer;">
@@ -946,6 +943,7 @@ createApp({
                 </tr>
               </tbody>
             </table>
+            </div>
           </div>
         </template>
       </div>
@@ -1088,9 +1086,13 @@ createApp({
                     <span v-else-if="item.reason==='transfer_in'">Received {{ item.currency }}</span>
                     <span v-else>{{ item.currency }}</span>
                   </td>
-                  <td :style="['transfer_out','conversion','withdrawal'].includes(item.reason) ? 'color:#ef4444;font-weight:600' : 'color:var(--primary);font-weight:600'">
-                    {{ ['transfer_out','conversion','withdrawal'].includes(item.reason) ? '−' : '+' }}{{ fmt(Math.abs(parseFloat(item.amount)), item.currency) }} {{ item.currency }}
-                    <div v-if="item.balance_after" style="font-family:var(--mono);font-size:0.68rem;color:var(--ink-soft);font-weight:400;margin-top:2px;">bal: {{ fmt(item.balance_after, item.currency) }}</div>
+                  <td>
+                    <div style="font-weight:700;color:var(--ink);font-size:0.95rem;">
+                      {{ fmt(item.balance_after ?? item.amount, item.currency) }} {{ item.currency }}
+                    </div>
+                    <div :style="['transfer_out','conversion','withdrawal'].includes(item.reason) ? 'color:#ef4444;font-size:0.72rem;font-family:var(--mono);margin-top:2px;' : 'color:var(--primary);font-size:0.72rem;font-family:var(--mono);margin-top:2px;'">
+                      {{ ['transfer_out','conversion','withdrawal'].includes(item.reason) ? '−' : '+' }}{{ fmt(Math.abs(parseFloat(item.amount)), item.currency) }}
+                    </div>
                   </td>
                   <td class="hide-mobile" style="font-family:var(--mono);font-size:0.75rem;color:var(--ink-soft)">{{ date(item.created_at) }}</td>
                 </tr>
