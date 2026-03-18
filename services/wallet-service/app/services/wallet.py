@@ -40,6 +40,7 @@ async def list_transfers(db: AsyncSession, user_id: str) -> list[dict]:
             "direction": "out" if e.reason == "transfer_out" else "in",
             "reason": e.reason,
             "reference_id": e.reference_id,
+            "balance_after": str(e.balance_after) if e.balance_after is not None else None,
             "created_at": e.created_at.isoformat(),
         }
         for e in entries
@@ -66,14 +67,16 @@ async def transfer(
     sender_wallet.balance -= amount
     db.add(LedgerEntry(
         user_id=sender_id, currency=currency,
-        amount=-amount, reason="transfer_out", reference_id=reference_id,
+        amount=-amount, balance_after=sender_wallet.balance,
+        reason="transfer_out", reference_id=reference_id,
     ))
 
     await db.flush()
     recipient_wallet.balance += amount
     db.add(LedgerEntry(
         user_id=recipient_id, currency=currency,
-        amount=amount, reason="transfer_in", reference_id=reference_id,
+        amount=amount, balance_after=recipient_wallet.balance,
+        reason="transfer_in", reference_id=reference_id,
     ))
 
     await db.commit()
@@ -90,7 +93,8 @@ async def debit(
     wallet.balance -= amount
     db.add(LedgerEntry(
         user_id=user_id, currency=currency,
-        amount=-amount, reason=reason, reference_id=reference_id,
+        amount=-amount, balance_after=wallet.balance,
+        reason=reason, reference_id=reference_id,
     ))
     await db.commit()
     return wallet
@@ -104,7 +108,8 @@ async def credit(
     wallet.balance += amount
     db.add(LedgerEntry(
         user_id=user_id, currency=currency,
-        amount=amount, reason=reason, reference_id=reference_id,
+        amount=amount, balance_after=wallet.balance,
+        reason=reason, reference_id=reference_id,
     ))
     await db.commit()
     return wallet
