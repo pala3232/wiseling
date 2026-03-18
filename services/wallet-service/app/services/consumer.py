@@ -33,14 +33,16 @@ async def handle_event(event_type: str, payload: dict):
     redis = get_redis()
     async with AsyncSessionLocal() as db:
         if event_type == "conversion.requested":
-            await debit(
-                db, payload["user_id"], payload["from_currency"],
-                Decimal(payload["from_amount"]), "conversion", payload["conversion_id"],
-            )
-            await credit(
-                db, payload["user_id"], payload["to_currency"],
-                Decimal(payload["to_amount"]), "conversion", payload["conversion_id"],
-            )
+            async with AsyncSessionLocal() as db1:
+                await debit(
+                    db1, payload["user_id"], payload["from_currency"],
+                    Decimal(payload["from_amount"]), "conversion", payload["conversion_id"],
+                )
+            async with AsyncSessionLocal() as db2:
+                await credit(
+                    db2, payload["user_id"], payload["to_currency"],
+                    Decimal(payload["to_amount"]), "conversion", payload["conversion_id"],
+                )
             try:
                 async with httpx.AsyncClient(timeout=5.0) as client:
                     await client.patch(
@@ -74,14 +76,16 @@ async def handle_event(event_type: str, payload: dict):
             print(f"[wallet] Debited withdrawal {payload['withdrawal_id']}")
 
         elif event_type == "transfer.requested":
-            await debit(
-                db, payload["sender_id"], payload["currency"],
-                Decimal(payload["amount"]), "transfer_out", payload["transfer_id"],
-            )
-            await credit(
-                db, payload["recipient_id"], payload["currency"],
-                Decimal(payload["amount"]), "transfer_in", payload["transfer_id"],
-            )
+            async with AsyncSessionLocal() as db1:
+                await debit(
+                    db1, payload["sender_id"], payload["currency"],
+                    Decimal(payload["amount"]), "transfer_out", payload["transfer_id"],
+                )
+            async with AsyncSessionLocal() as db2:
+                await credit(
+                    db2, payload["recipient_id"], payload["currency"],
+                    Decimal(payload["amount"]), "transfer_in", payload["transfer_id"],
+                )
             try:
                 async with httpx.AsyncClient(timeout=5.0) as client:
                     await client.patch(
