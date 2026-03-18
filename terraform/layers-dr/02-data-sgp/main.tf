@@ -98,3 +98,21 @@ resource "aws_secretsmanager_secret" "jwt_sgp" {
   recovery_window_in_days = 0
   tags                    = { project = var.app_name, Region = "sgp" }
 }
+
+# ── SQS Queues ────────────────────────────────────────────────────────────────
+
+resource "aws_sqs_queue" "conversions_dr" {
+  provider                  = aws.dr
+  name                      = "wiseling-conversions"
+  message_retention_seconds = 86400
+  visibility_timeout_seconds = 30
+  tags                      = { Project = var.app_name, Region = "dr" }
+}
+
+resource "aws_sqs_queue" "withdrawals_dr" {
+  provider                  = aws.dr
+  name                      = "wiseling-withdrawals"
+  message_retention_seconds = 86400
+  visibility_timeout_seconds = 30
+  tags                      = { Project = var.app_name, Region = "dr" }
+}

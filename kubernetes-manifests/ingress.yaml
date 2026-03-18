@@ -10,9 +10,9 @@ metadata:
     alb.ingress.kubernetes.io/group.name: wiseling
     alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=3600
     # UNCOMMENT AND APPLY THESE THREE AFTER ACM CERT IS VALIDATED AND DEPLOYED. THEN SWITCH THE SERVICE PORT TO 443 AND TYPE TO HTTPS IN TERRAFORM R53 TARGET GROUP.
-    # alb.ingress.kubernetes.io/certificate-arn: <output from terraform primary_ingress_cert_annotation>
-    # alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
-    # alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-southeast-2:359707702022:certificate/7a673e30-c5bf-439b-bd67-c0be6c36a920
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
 spec:
   ingressClassName: alb
   rules:
