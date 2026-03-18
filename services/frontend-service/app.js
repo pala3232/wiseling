@@ -895,10 +895,6 @@ createApp({
           </div>
         </div>
       </div>
-      <div class="banner-row">
-        <span style="color:var(--primary);flex-shrink:0;">ⓘ</span>
-        When sending money, we now verify recipient account numbers in real-time before any transfer is processed.
-      </div>
     </header>
 
     <div class="subnav">
@@ -1082,8 +1078,9 @@ createApp({
         <div class="table-card">
           <div v-if="historyLoading" class="loading"><div class="spinner"></div>Loading...</div>
           <div v-else-if="!filteredHistory.length" class="empty-state">No transactions found</div>
-          <table v-else>
-            <thead><tr><th>Type</th><th>Details</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
+          <div v-else style="overflow-x:auto;">
+          <table>
+            <thead><tr><th>Type</th><th>Details</th><th>Amount</th><th>Status</th><th class="hide-mobile">Date</th></tr></thead>
             <tbody>
               <tr v-for="item in filteredHistory" :key="item.id + item._type" class="tx-row" @click="openProofFromRow(item)" style="cursor:pointer;">
                 <td>
@@ -1102,10 +1099,11 @@ createApp({
                   <span :class="['badge', txStatusClass(item.status)]">{{ txStatusLabel(item.status) }}</span>
                   <span v-if="['pending','processing'].includes((item.status||'').toLowerCase())" class="pending-spinner" style="margin-left:6px;display:inline-block;"></span>
                 </td>
-                <td style="font-family:var(--mono);font-size:0.75rem;color:var(--ink-soft)">{{ date(item.created_at) }}</td>
+                <td class="hide-mobile" style="font-family:var(--mono);font-size:0.75rem;color:var(--ink-soft)">{{ date(item.created_at) }}</td>
               </tr>
             </tbody>
           </table>
+          </div>
         </div>
       </div>
 
@@ -1114,7 +1112,7 @@ createApp({
     <nav class="mobile-nav">
       <button v-for="(label, key) in PAGE_NAMES" :key="key" class="mobile-nav-item" :class="{active:currentPage===key}" @click="navigate(key)">
         <span class="mobile-nav-icon">{{ {overview:'◎',wallets:'▣',convert:'⇄',withdraw:'↑',history:'≡'}[key] }}</span>
-        {{ label.split(' ')[0] }}
+        {{ key === 'wallets' ? 'Wallet' : label.split(' ')[0] }}
       </button>
     </nav>
   </div>

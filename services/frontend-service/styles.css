@@ -148,7 +148,7 @@ html,body{height:100%;background:var(--bg);color:var(--ink);font-family:var(--fo
 #dashboard-screen{display:none;min-height:100vh;background:var(--bg);}
 #dashboard-screen.visible{display:flex;flex-direction:column;}
 .topbar{background:var(--bg2);border-bottom:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;z-index:100;height:auto;padding:0;}
-.topbar-row{height:52px;display:flex;align-items:center;padding:0 1.5rem;}
+.topbar-row{height:52px;display:flex;align-items:center;padding:0 1.5rem;overflow:hidden;}
 .topbar-logo{display:flex;align-items:center;gap:8px;margin-right:2.5rem;}
 .topbar-logo-box{background:var(--primary);color:var(--bg);font-weight:700;font-size:11px;padding:3px 6px;letter-spacing:0.05em;border-radius:4px;}
 .topbar-logo-text{color:var(--ink);font-weight:600;font-size:1rem;}
@@ -343,10 +343,11 @@ td.strong{color:var(--ink);font-weight:600;}
   .tab-switcher{margin-bottom:1.5rem;}
   .topbar-nav{display:none;}
   .rates-row{display:none;}
-  .main-content{padding:1.25rem 1rem;padding-bottom:5rem;}
+  .main-content{padding:1.25rem 1rem;padding-bottom:8rem;}
   .form-row{grid-template-columns:1fr;}
   .quick-actions{flex-direction:column;}
   .mobile-nav{display:flex;}
   .form-card{max-width:100%;}
   .banner-row{padding:0.55rem 1rem;font-size:0.72rem;}
+  .hide-mobile{display:none;}
 }
