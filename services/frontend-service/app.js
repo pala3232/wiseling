@@ -1086,9 +1086,8 @@ createApp({
                     <span v-else-if="item.reason==='transfer_in'">Received {{ item.currency }}</span>
                     <span v-else>{{ item.currency }}</span>
                   </td>
-                  <td :style="['transfer_out','conversion','withdrawal'].includes(item.reason) ? 'color:#ef4444;font-weight:600' : 'color:var(--primary);font-weight:600'">
-                    {{ ['transfer_out','conversion','withdrawal'].includes(item.reason) ? '−' : '+' }}{{ fmt(Math.abs(parseFloat(item.amount)), item.currency) }} {{ item.currency }}
-                    <div v-if="item.balance_after" style="font-family:var(--mono);font-size:0.68rem;color:var(--ink-soft);font-weight:400;margin-top:2px;">bal: {{ fmt(item.balance_after, item.currency) }}</div>
+                  <td style="font-weight:700;color:var(--ink);">
+                    {{ fmt(item.balance_after ?? item.amount, item.currency) }} {{ item.currency }}
                   </td>
                   <td class="hide-mobile" style="font-family:var(--mono);font-size:0.75rem;color:var(--ink-soft)">{{ date(item.created_at) }}</td>
                 </tr>
