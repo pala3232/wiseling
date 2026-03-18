@@ -22,6 +22,27 @@ async def get_wallets(db: AsyncSession, user_id: str) -> list[Wallet]:
     return result.scalars().all()
 
 
+async def list_ledger(db: AsyncSession, user_id: str) -> list[dict]:
+    result = await db.execute(
+        select(LedgerEntry)
+        .where(LedgerEntry.user_id == user_id)
+        .order_by(LedgerEntry.created_at.desc())
+    )
+    entries = result.scalars().all()
+    return [
+        {
+            "id": e.id,
+            "currency": e.currency,
+            "amount": str(e.amount),
+            "balance_after": str(e.balance_after) if e.balance_after is not None else None,
+            "reason": e.reason,
+            "reference_id": e.reference_id,
+            "created_at": e.created_at.isoformat(),
+        }
+        for e in entries
+    ]
+
+
 async def list_transfers(db: AsyncSession, user_id: str) -> list[dict]:
     result = await db.execute(
         select(LedgerEntry)
