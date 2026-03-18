@@ -28,7 +28,7 @@ spec:
               app: conversion-service
       containers:
       - name: conversion-service
-        image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/conversion-service:1.0.9
+        image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/conversion-service:1.2.0
         ports:
         - containerPort: 8002
         envFrom:

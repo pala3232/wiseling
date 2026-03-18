@@ -34,7 +34,7 @@ spec:
             topologyKey: kubernetes.io/hostname
       containers:
       - name: withdrawal-processor
-        image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/withdrawal-service:1.0.18
+        image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/withdrawal-service:1.2.0
         command: ["python", "-m", "app.services.processor"]
         envFrom:
           - configMapRef:

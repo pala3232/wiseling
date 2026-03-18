@@ -6,6 +6,7 @@ from app.db.session import engine
 from app.db.base import Base
 from app.models.withdrawal import Withdrawal
 from app.models.outbox import OutboxEvent
+from prometheus_fastapi_instrumentator import Instrumentator
 
 
 @asynccontextmanager
@@ -16,6 +17,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Wiseling Withdrawal Service", version="0.1.0", lifespan=lifespan)
+Instrumentator().instrument(app).expose(app)
+
 
 app.add_middleware(
     CORSMiddleware,

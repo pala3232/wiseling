@@ -5,10 +5,12 @@ from app.db.session import engine
 from app.db.base import Base
 from app.models.user import User
 import os
+from prometheus_fastapi_instrumentator import Instrumentator
 
 
 
 app = FastAPI(title="Wiseling Auth Service", version="0.1.0")
+Instrumentator().instrument(app).expose(app)
 
 app.add_middleware(
     CORSMiddleware,
