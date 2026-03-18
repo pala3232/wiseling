@@ -93,7 +93,7 @@ resource "aws_route53_record" "primary" {
   alias {
     name                   = var.primary_alb_dns
     zone_id                = var.primary_alb_zone_id
-    evaluate_target_health = true
+    evaluate_target_health = false
   }
 }
 
@@ -112,7 +112,7 @@ resource "aws_route53_record" "dr" {
   alias {
     name                   = var.dr_alb_dns
     zone_id                = var.dr_alb_zone_id
-    evaluate_target_health = true
+    evaluate_target_health = false
   }
 }
 
