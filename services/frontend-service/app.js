@@ -228,11 +228,14 @@ createApp({
       localStorage.removeItem('wsl_email');
       stopSSE();
       stopPolling();
+      document.getElementById('env-info-footer').style.display = 'none';
     }
 
     // ── DASHBOARD INIT ──
     async function enterDashboard() {
     setTimeout(() => window.scrollTo({ top: 0, behavior: 'instant' }), 0);
+    const footer = document.getElementById('env-info-footer');
+    if (footer) footer.style.display = '';
     await loadRates();
     await loadOverview();
     loadMyAccountNumber();
@@ -241,6 +244,7 @@ createApp({
 }
 
     async function loadMyAccountNumber() {
+      if (myAccountNumber.value) return; // already loaded from onMounted token validation
       try {
         const me = await api('GET', '/api/v1/auth/me');
         if (me.account_number) myAccountNumber.value = me.account_number;
@@ -648,7 +652,15 @@ createApp({
 
     // ── LIFECYCLE ──
     onMounted(async () => {
-      if (token.value) enterDashboard();
+      if (token.value) {
+        try {
+          const me = await api('GET', '/api/v1/auth/me');
+          if (me.account_number) myAccountNumber.value = me.account_number;
+          enterDashboard();
+        } catch {
+          // 401 handler in api() already called logout() — user lands on login screen cleanly
+        }
+      }
       try {
         const res = await fetch('/api/v1/envinfo');
         if (res.ok) {

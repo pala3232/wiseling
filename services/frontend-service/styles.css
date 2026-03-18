@@ -337,27 +337,67 @@ td.strong{color:var(--ink);font-weight:600;}
 .mobile-nav-icon{font-size:1.1rem;}
 
 @media(max-width:768px){
+  /* ── AUTH ── */
   .auth-left{display:none;}
   .auth-right{width:100%;padding:0;background:var(--bg);align-items:flex-start;justify-content:center;flex:1;display:flex;}
   .auth-form-wrap{width:100%;max-width:400px;background:transparent;border:none;border-radius:0;padding:2rem 1.75rem;margin:0;}
   .auth-form-title{font-size:1.6rem;margin-bottom:1.5rem;}
   .tab-switcher{margin-bottom:1.5rem;}
+  .banner-row{display:none;}
+
+  /* ── TOPBAR ── */
+  .topbar{width:100%;max-width:100vw;overflow:hidden;box-sizing:border-box;}
+  .topbar-row{width:100%;overflow:hidden;box-sizing:border-box;}
   .topbar-nav{display:none;}
   .rates-row{display:none;}
   .user-email-short{display:none;}
-  .main-content{padding:1.25rem 1rem;padding-bottom:8rem;width:100%;box-sizing:border-box;}
-  .form-row{grid-template-columns:1fr;}
-  .quick-actions{flex-direction:column;}
-  .mobile-nav{display:flex;}
-  .form-card{max-width:100%;}
-  .banner-row{display:none;}
-  .hide-mobile{display:none;}
-  .wallet-watermark{opacity:0.08;}
-  .topbar-row{width:100%;overflow:hidden;box-sizing:border-box;}
-  .topbar{width:100%;max-width:100vw;overflow:hidden;}
-  .env-info-footer{display:none;}
+
+  /* ── LAYOUT ── */
   #dashboard-screen.visible{width:100%;max-width:100vw;overflow-x:hidden;}
-  .subnav{width:100%;box-sizing:border-box;}
-  .balance-hero{width:100%;box-sizing:border-box;}
+  .subnav{width:100%;box-sizing:border-box;padding:0.5rem 1rem;}
+  .main-content{padding:1.25rem 1rem;padding-bottom:8rem;width:100%;box-sizing:border-box;overflow-x:hidden;}
+  .page{width:100%;box-sizing:border-box;}
+  .page-header{width:100%;box-sizing:border-box;}
+  .hide-mobile{display:none;}
+
+  /* ── BALANCE HERO ── */
+  .balance-hero{width:100%;box-sizing:border-box;overflow:hidden;}
+  .balance-hero::after{display:none;}
+  .balance-hero::before{display:none;}
+  .balance-hero-amount{font-size:2rem;}
+
+  /* ── QUICK ACTIONS ── */
+  .quick-actions{flex-direction:column;width:100%;box-sizing:border-box;}
+  .qa-btn{width:100%;box-sizing:border-box;}
+
+  /* ── TABLE CARD ── */
   .table-card{width:100%;box-sizing:border-box;}
+  .table-header{padding:0.75rem 1rem;}
+  thead th{padding:0.5rem 0.75rem;}
+  tbody td{padding:0.75rem 0.75rem;}
+
+  /* ── WALLETS GRID ── */
+  .wallets-grid{grid-template-columns:1fr;width:100%;box-sizing:border-box;}
+  .wallet-card{width:100%;box-sizing:border-box;}
+  .wallet-watermark{opacity:0.08;}
+
+  /* ── FORM CARD ── */
+  .form-card{max-width:100%;width:100%;box-sizing:border-box;}
+  .form-row{grid-template-columns:1fr;}
+
+  /* ── INLINE BALANCE STRIP ── */
+  .inline-balance-strip{width:100%;box-sizing:border-box;}
+  .ibs-card{min-width:80px;flex:1;}
+
+  /* ── FILTER TABS ── */
+  .filter-tabs{width:100%;box-sizing:border-box;flex-wrap:wrap;}
+
+  /* ── RECENT RECIPIENTS ── */
+  .recipient-item{width:100%;box-sizing:border-box;}
+
+  /* ── MOBILE NAV ── */
+  .mobile-nav{display:flex;}
+
+  /* ── ENV FOOTER ── */
+  .env-info-footer{display:none;}
 }
