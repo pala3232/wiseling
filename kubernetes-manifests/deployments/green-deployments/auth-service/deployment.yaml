@@ -35,7 +35,7 @@ spec:
             topologyKey: kubernetes.io/hostname
       containers:
       - name: auth-service
-        image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/auth-service:1.0.7
+        image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/auth-service:1.0.8
         ports:
         - containerPort: 8000
         env:

@@ -12,6 +12,9 @@ from app.core.config import settings
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+@router.get("/health")
+async def health():
+    return {"service": "auth", "status": "ok"}
 
 @router.post("/register", response_model=UserResponse, status_code=201)
 async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
