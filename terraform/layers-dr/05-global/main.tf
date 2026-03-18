@@ -52,6 +52,7 @@ resource "aws_route53_health_check" "primary" {
   tags = {
     Name    = "${var.app_name}-primary-hc"
     Project = var.app_name
+    Force   = "1"
   }
 }
 
@@ -69,6 +70,7 @@ resource "aws_route53_health_check" "dr" {
   tags = {
     Name    = "${var.app_name}-dr-hc"
     Project = var.app_name
+    Force   = "1"
   }
 }
 
