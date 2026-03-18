@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import Optional
 from pydantic import BaseModel
 
 
@@ -19,6 +20,7 @@ class LedgerEntryResponse(BaseModel):
     id: str
     currency: str
     amount: Decimal
+    balance_after: Optional[Decimal] = None
     reason: str
     reference_id: str
 
