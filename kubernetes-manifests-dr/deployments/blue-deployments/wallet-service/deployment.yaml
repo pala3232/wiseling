@@ -28,7 +28,7 @@ spec:
               app: wallet-service
       containers:
       - name: wallet-service
-        image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/wallet-service:1.0.18
+        image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/wallet-service:1.0.19
         ports:
         - containerPort: 8001
         envFrom:
