@@ -232,7 +232,6 @@ createApp({
 
     // ── DASHBOARD INIT ──
     async function enterDashboard() {
-    setTimeout(() => window.scrollTo({ top: 0, behavior: 'instant' }), 0);
     await loadRates();
     await loadOverview();
     loadMyAccountNumber();

@@ -35,7 +35,7 @@ spec:
             topologyKey: kubernetes.io/hostname
       containers:
       - name: frontend
-        image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/frontend:1.2.4
+        image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/frontend:1.2.5
         ports:
         - containerPort: 80
         resources:
