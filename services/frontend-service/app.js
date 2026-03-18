@@ -62,6 +62,7 @@ createApp({
     const allConversions = ref([]);
     const allWithdrawals = ref([]);
     const allTransfers = ref([]);
+    const allLedger = ref([]);
     const myAccountNumber = ref('');
     const overviewLoading = ref(true);
     const walletsLoading = ref(false);
@@ -153,13 +154,12 @@ createApp({
     });
 
     const filteredHistory = computed(() => {
-      let rows = [];
-      if (historyFilter.value === 'all' || historyFilter.value === 'conversions')
-        rows.push(...allConversions.value.map(x => ({ ...x, _type: 'conversion' })));
-      if (historyFilter.value === 'all' || historyFilter.value === 'withdrawals')
-        rows.push(...allWithdrawals.value.map(x => ({ ...x, _type: 'withdrawal' })));
-
-      return rows.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      let rows = allLedger.value;
+      if (historyFilter.value === 'conversions')
+        rows = rows.filter(x => x.reason === 'conversion');
+      else if (historyFilter.value === 'withdrawals')
+        rows = rows.filter(x => ['transfer_out','transfer_in','withdrawal'].includes(x.reason));
+      return rows;
     });
 
     const recentActivity = computed(() => {
@@ -467,23 +467,11 @@ createApp({
 
     // ── HISTORY ──
     async function loadHistory() {
-      // Reuse already-loaded data if available
-      if (allConversions.value.length || allWithdrawals.value.length || allTransfers.value.length) {
-        historyLoading.value = false;
-        return;
-      }
+      if (allLedger.value.length) { historyLoading.value = false; return; }
       historyLoading.value = true;
       try {
-        const [convs, wds, recvWds] = await Promise.all([
-          api('GET', '/api/v1/conversions'),
-          api('GET', '/api/v1/withdrawals'),
-          api('GET', '/api/v1/withdrawals/received').catch(() => []),
-        ]);
-        allConversions.value = Array.isArray(convs) ? convs : [];
-        const sentWds    = Array.isArray(wds)     ? wds.map(w => ({ ...w, direction: 'out' })) : [];
-        const inboundWds = Array.isArray(recvWds) ? recvWds.map(w => ({ ...w, direction: 'in' })) : [];
-        allWithdrawals.value = [...sentWds, ...inboundWds].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-        allTransfers.value = [];
+        const entries = await api('GET', '/api/v1/wallet/ledger');
+        allLedger.value = Array.isArray(entries) ? entries : [];
       } catch (e) { showToast(e.message, 'error'); }
       historyLoading.value = false;
     }
@@ -625,7 +613,7 @@ createApp({
         sseSource = new EventSource(`${API_BASE}/api/v1/events?token=${token.value}`);
         sseSource.onopen = () => { sseConnected.value = true; };
         sseSource.onerror = () => { sseConnected.value = false; };
-        sseSource.addEventListener('balance_update', async () => { await loadWallets(); });
+        sseSource.addEventListener('balance_update', async () => { await loadWallets(); allLedger.value = []; });
         sseSource.addEventListener('withdrawal_update', async (e) => {
           const data = JSON.parse(e.data);
           const st = (data.status||'').toLowerCase();
@@ -708,7 +696,7 @@ createApp({
       wdWalletBalance, initiateWithdraw, confirmWithdraw, showConfirmModal, confirmLoading,
       showProof, proofData, copyProofRef, viewProofInHistory, dismissProof, fmtProofDate, openProofFromRow,
       recentRecipients, fillRecipient,
-      historyFilter, historyLoading, filteredHistory, loadHistory,
+      historyFilter, historyLoading, filteredHistory, loadHistory, allLedger,
       toasts, sseConnected, date, txStatusClass, txStatusLabel, fmtAmount,
       isLoggedIn, envInfo,
     };
@@ -895,6 +883,10 @@ createApp({
           </div>
         </div>
       </div>
+      <div class="banner-row">
+        <span style="color:var(--primary);flex-shrink:0;">ⓘ</span>
+        When sending money, we now verify recipient account numbers in real-time before any transfer is processed.
+      </div>
     </header>
 
     <div class="subnav">
@@ -1079,30 +1071,31 @@ createApp({
           <div v-if="historyLoading" class="loading"><div class="spinner"></div>Loading...</div>
           <div v-else-if="!filteredHistory.length" class="empty-state">No transactions found</div>
           <div v-else style="overflow-x:auto;">
-          <table>
-            <thead><tr><th>Type</th><th>Details</th><th>Amount</th><th>Status</th><th class="hide-mobile">Date</th></tr></thead>
-            <tbody>
-              <tr v-for="item in filteredHistory" :key="item.id + item._type" class="tx-row" @click="openProofFromRow(item)" style="cursor:pointer;">
-                <td>
-                  <span v-if="item._type==='conversion'" class="badge badge-type">Conversion</span>
-                  <span v-else class="badge badge-type">Withdrawal</span>
-                </td>
-                <td class="strong">
-                  <span v-if="item._type==='conversion'">{{ item.from_currency }} → {{ item.to_currency }}</span>
-                  <span v-else>{{ item.direction==='in' ? 'Received' : 'Sent' }} {{ item.currency }}</span>
-                </td>
-                <td :style="item._type==='withdrawal' && item.direction==='in' ? 'color:var(--primary);font-weight:600' : item._type==='withdrawal' && item.direction==='out' ? 'color:#ef4444;font-weight:600' : 'color:var(--primary);font-weight:600'">
-                  <span v-if="item._type==='withdrawal'">{{ item.direction==='in' ? '+' : '−' }}{{ fmt(item.amount, item.currency) }} {{ item.currency }}</span>
-                  <span v-else>{{ fmt(item.from_amount||item.amount, item.from_currency) }} {{ item.from_currency }}</span>
-                </td>
-                <td>
-                  <span :class="['badge', txStatusClass(item.status)]">{{ txStatusLabel(item.status) }}</span>
-                  <span v-if="['pending','processing'].includes((item.status||'').toLowerCase())" class="pending-spinner" style="margin-left:6px;display:inline-block;"></span>
-                </td>
-                <td class="hide-mobile" style="font-family:var(--mono);font-size:0.75rem;color:var(--ink-soft)">{{ date(item.created_at) }}</td>
-              </tr>
-            </tbody>
-          </table>
+            <table>
+              <thead><tr><th>Type</th><th>Details</th><th>Amount</th><th class="hide-mobile">Date</th></tr></thead>
+              <tbody>
+                <tr v-for="item in filteredHistory" :key="item.id" class="tx-row" style="cursor:default;">
+                  <td>
+                    <span v-if="item.reason==='conversion'" class="badge badge-type">Conversion</span>
+                    <span v-else-if="item.reason==='withdrawal'" class="badge badge-type">Withdrawal</span>
+                    <span v-else-if="item.reason==='transfer_out'" class="badge badge-type">Sent</span>
+                    <span v-else-if="item.reason==='transfer_in'" class="badge badge-type">Received</span>
+                    <span v-else class="badge badge-type">{{ item.reason }}</span>
+                  </td>
+                  <td class="strong">
+                    <span v-if="item.reason==='conversion'">{{ item.currency }} converted</span>
+                    <span v-else-if="item.reason==='transfer_out'">Sent {{ item.currency }}</span>
+                    <span v-else-if="item.reason==='transfer_in'">Received {{ item.currency }}</span>
+                    <span v-else>{{ item.currency }}</span>
+                  </td>
+                  <td :style="['transfer_out','conversion','withdrawal'].includes(item.reason) ? 'color:#ef4444;font-weight:600' : 'color:var(--primary);font-weight:600'">
+                    {{ ['transfer_out','conversion','withdrawal'].includes(item.reason) ? '−' : '+' }}{{ fmt(Math.abs(parseFloat(item.amount)), item.currency) }} {{ item.currency }}
+                    <div v-if="item.balance_after" style="font-family:var(--mono);font-size:0.68rem;color:var(--ink-soft);font-weight:400;margin-top:2px;">bal: {{ fmt(item.balance_after, item.currency) }}</div>
+                  </td>
+                  <td class="hide-mobile" style="font-family:var(--mono);font-size:0.75rem;color:var(--ink-soft)">{{ date(item.created_at) }}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
