@@ -1,5 +1,6 @@
 from decimal import Decimal
 from typing import Optional
+from datetime import datetime
 from pydantic import BaseModel
 
 
@@ -23,6 +24,7 @@ class LedgerEntryResponse(BaseModel):
     balance_after: Optional[Decimal] = None
     reason: str
     reference_id: str
+    created_at: datetime
 
     class Config:
         from_attributes = True
