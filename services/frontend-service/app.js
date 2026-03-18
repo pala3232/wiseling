@@ -183,12 +183,20 @@ createApp({
         if (formEncoded) { headers['Content-Type'] = 'application/x-www-form-urlencoded'; bodyStr = new URLSearchParams(body).toString(); }
         else { headers['Content-Type'] = 'application/json'; bodyStr = JSON.stringify(body); }
       }
-      const res = await fetch(API_BASE + path, { method, headers, body: bodyStr });
+      let res;
+      try {
+        res = await fetch(API_BASE + path, { method, headers, body: bodyStr });
+      } catch (networkErr) {
+        // Network failure — DNS may have failed over, force reload to pick up new IPs
+        window.location.reload();
+        throw networkErr;
+      }
       if (res.status === 401) { logout(); throw new Error('Session expired. Please sign in again.'); }
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || `Error ${res.status}`);
       return data;
     }
+
 
     // ── TOASTS ──
     function showToast(msg, type = 'success') {

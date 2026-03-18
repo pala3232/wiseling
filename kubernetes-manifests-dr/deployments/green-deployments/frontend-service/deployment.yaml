@@ -28,7 +28,7 @@ spec:
               app: frontend
       containers:
       - name: frontend
-        image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/frontend:1.2.5
+        image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/frontend:1.2.6
         ports:
         - containerPort: 80
         resources:

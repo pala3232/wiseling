@@ -46,8 +46,8 @@ resource "aws_route53_health_check" "primary" {
   port = 443        # SWITCH TO THIS PORT AFTER YOU DEPLOYED THE ACM CERT AND APPLIED PORT 80.
   type = "HTTPS"    # SWITCH TO THIS PORT AFTER YOU DEPLOYED THE ACM CERT AND APPLIED PORT 80.
   resource_path     = "/api/v1/auth/health"
-  failure_threshold = 3
-  request_interval  = 30
+  failure_threshold = 2
+  request_interval  = 10
   enable_sni = true
   tags = {
     Name    = "${var.app_name}-primary-hc"
