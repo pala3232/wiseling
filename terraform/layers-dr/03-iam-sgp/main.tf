@@ -104,8 +104,8 @@ resource "aws_iam_policy" "sqs" {
       Effect = "Allow"
       Action = ["sqs:SendMessage", "sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:GetQueueAttributes"]
       Resource = [
-        "arn:aws:sqs:ap-southeast-2:${var.account_id}:${var.app_name}-conversions",
-        "arn:aws:sqs:ap-southeast-2:${var.account_id}:${var.app_name}-withdrawals"
+        "arn:aws:sqs:ap-southeast-1:${var.account_id}:${var.app_name}-conversions",
+        "arn:aws:sqs:ap-southeast-1:${var.account_id}:${var.app_name}-withdrawals"
       ]
     }]
   })
