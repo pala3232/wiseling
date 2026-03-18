@@ -8,7 +8,7 @@ from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from app.schemas.wallet import WalletResponse, InitWalletsRequest
-from app.services.wallet import get_wallets, init_wallets, list_transfers
+from app.services.wallet import get_wallets, init_wallets, list_transfers, list_ledger
 from app.core.dependencies import get_current_user_id
 from app.core.config import settings
 
@@ -46,6 +46,11 @@ async def init(body: InitWalletsRequest, db: AsyncSession = Depends(get_db)):
 @router.get("/api/v1/wallet/transfers")
 async def get_transfers(user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db)):
     return await list_transfers(db, user_id)
+
+
+@router.get("/api/v1/wallet/ledger")
+async def get_ledger(user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db)):
+    return await list_ledger(db, user_id)
 
 
 @router.get("/internal/wallet/balance/{user_id}/{currency}", include_in_schema=False)
