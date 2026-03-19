@@ -29,7 +29,7 @@ def random_account_number():
     return ''.join(random.choices(string.digits, k=10))
 
 
-CURRENCIES = ["USD", "NZD", "EUR", "GBP", "AUD"]
+CURRENCIES = ["USD", "EUR", "GBP"]
 
 
 # ─── Auth User ────────────────────────────────────────────────────────────────

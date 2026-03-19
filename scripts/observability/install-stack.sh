@@ -55,7 +55,4 @@ helm upgrade --install chaos-mesh chaos-mesh/chaos-mesh \
   --wait \
   --timeout 5m
 
-log "Applying Wiseling PrometheusRules..."
-kubectl apply -f kubernetes-manifests/wiseling-rules.yaml
-
 log "Observability stack and Chaos Mesh installation complete!"

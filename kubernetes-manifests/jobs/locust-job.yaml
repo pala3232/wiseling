@@ -16,7 +16,7 @@ spec:
       restartPolicy: Never
       containers:
         - name: locust
-          image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/locust:1.0.0
+          image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/locust:1.0.1
           args:
             - --headless
             - -u

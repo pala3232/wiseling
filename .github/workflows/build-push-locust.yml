@@ -9,7 +9,7 @@ on:
 
 env:
   ECR_REPO_URL: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/locust
-  IMAGE_TAG: 1.0.0
+  IMAGE_TAG: 1.0.1
 
 jobs:
   build-and-push:
