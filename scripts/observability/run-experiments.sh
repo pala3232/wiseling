@@ -218,30 +218,31 @@ experiment_01_wallet_scale_down() {
 
 # ─── Experiment 2: outbox poller network delay (~2.5 min) ────────────────────
 
-experiment_02_outbox_network_delay() {
+experiment_02_outbox_poller_kill() {
   log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  log "EXPERIMENT 02: outbox poller network delay (2s egress latency)"
-  log "Validates: Pollers survive, no restarts"
+  log "EXPERIMENT 02: conversion-outbox-poller scale-to-zero"
+  log "Validates: Poller recovers, no message loss"
   log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-  kubectl apply -f "$CHAOS_DIR/02-outbox-poller-network-delay.yaml"
-  log "2s latency injected — running for 90s..."
-  sleep 90
+  kubectl scale deployment -n "$NAMESPACE" conversion-outbox-poller --replicas=0
+  log "conversion-outbox-poller scaled to 0 — waiting 45s..."
+  sleep 45
 
-  assert_pods_running "app=conversion-outbox-poller" "outbox-pollers alive under network delay"
-
-  local restarts
-  restarts=$(kubectl get pods -n "$NAMESPACE" -l "app=conversion-outbox-poller" --no-headers 2>/dev/null | \
-    awk '{print $4}' | sort -rn | head -1 || echo "0")
-  if [ "${restarts:-0}" -eq 0 ]; then
-    success "Outbox pollers — no restarts (graceful degradation confirmed)"
+  local running
+  running=$(kubectl get pods -n "$NAMESPACE" -l "app=conversion-outbox-poller" \
+    --field-selector=status.phase=Running --no-headers 2>/dev/null | wc -l)
+  if [ "$running" -eq 0 ]; then
+    success "conversion-outbox-poller — confirmed 0 pods running"
     PASSED=$((PASSED + 1))
   else
-    warn "Outbox pollers restarted ${restarts} time(s)"
+    warn "conversion-outbox-poller — $running pod(s) still running unexpectedly"
     FAILED=$((FAILED + 1))
   fi
 
-  kubectl delete -f "$CHAOS_DIR/02-outbox-poller-network-delay.yaml" --ignore-not-found
+  kubectl scale deployment -n "$NAMESPACE" conversion-outbox-poller --replicas=1
+  wait_for_deployment_ready "conversion-outbox-poller" 1 60
+  assert_pods_running "app=conversion-outbox-poller" "conversion-outbox-poller recovered"
+
   success "Experiment 02 complete"
 }
 

@@ -36,13 +36,6 @@ alertmanager:
             title: '[{{ .Status | toUpper }}] {{ range .Alerts }}{{ .Labels.alertname }} {{ end }}'
             text: "{{ range .Alerts }}*Alert:* {{ .Annotations.summary }}\n*Namespace:* {{ .Labels.namespace }}\n*Description:* {{ .Annotations.description }}\n{{ end }}"
 
-    inhibit_rules:
-      - source_match:
-          severity: critical
-        target_match:
-          severity: warning
-        equal: ['namespace']
-
 prometheus:
   prometheusSpec:
     retention: 15d
