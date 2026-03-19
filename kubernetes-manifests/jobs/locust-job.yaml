@@ -24,7 +24,7 @@ spec:
             - -r
             - "5"           # spawn 5 users per second
             - --run-time
-            - "5m"          # run for 5 minutes
+            - "30m"          # run for 30 minutes
             - --html
             - /tmp/report.html
           resources:
