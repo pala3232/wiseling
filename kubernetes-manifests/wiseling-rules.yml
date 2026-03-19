@@ -1,0 +1,120 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: wiseling-rules
+  namespace: wiseling
+  labels:
+    release: kube-prometheus-stack  # must match kube-prometheus-stack's ruleSelector
+spec:
+  groups:
+
+    # ─── Error Rate ────────────────────────────────────────────────────────────
+    - name: wiseling.error-rate
+      rules:
+        - alert: HighErrorRate
+          expr: |
+            sum(rate(http_requests_total{namespace="wiseling", status_code=~"5.."}[5m])) by (app)
+            /
+            sum(rate(http_requests_total{namespace="wiseling"}[5m])) by (app)
+            > 0.05
+          for: 2m
+          labels:
+            severity: critical
+            namespace: wiseling
+          annotations:
+            summary: "High 5xx error rate on {{ $labels.app }}"
+            description: "{{ $labels.app }} has a 5xx error rate above 5% for 2 minutes (current: {{ $value | humanizePercentage }})"
+
+        - alert: HighClientErrorRate
+          expr: |
+            sum(rate(http_requests_total{namespace="wiseling", status_code=~"4.."}[5m])) by (app)
+            /
+            sum(rate(http_requests_total{namespace="wiseling"}[5m])) by (app)
+            > 0.10
+          for: 5m
+          labels:
+            severity: warning
+            namespace: wiseling
+          annotations:
+            summary: "High 4xx error rate on {{ $labels.app }}"
+            description: "{{ $labels.app }} has a 4xx error rate above 10% for 5 minutes (current: {{ $value | humanizePercentage }})"
+
+    # ─── Latency ───────────────────────────────────────────────────────────────
+    - name: wiseling.latency
+      rules:
+        - alert: HighP99Latency
+          expr: |
+            histogram_quantile(0.99,
+              sum(rate(http_request_duration_seconds_bucket{namespace="wiseling"}[5m])) by (app, le)
+            ) > 1.0
+          for: 2m
+          labels:
+            severity: warning
+            namespace: wiseling
+          annotations:
+            summary: "High p99 latency on {{ $labels.app }}"
+            description: "{{ $labels.app }} p99 latency is above 1s for 2 minutes (current: {{ $value | humanizeDuration }})"
+
+        - alert: HighP99LatencyCritical
+          expr: |
+            histogram_quantile(0.99,
+              sum(rate(http_request_duration_seconds_bucket{namespace="wiseling"}[5m])) by (app, le)
+            ) > 3.0
+          for: 2m
+          labels:
+            severity: critical
+            namespace: wiseling
+          annotations:
+            summary: "Critical p99 latency on {{ $labels.app }}"
+            description: "{{ $labels.app }} p99 latency is above 3s for 2 minutes (current: {{ $value | humanizeDuration }})"
+
+    # ─── Traffic ───────────────────────────────────────────────────────────────
+    - name: wiseling.traffic
+      rules:
+        - alert: ServiceNoTraffic
+          expr: |
+            sum(rate(http_requests_total{namespace="wiseling", app=~"auth-service|wallet-service|conversion-service|withdrawal-service"}[5m])) by (app) == 0
+          for: 5m
+          labels:
+            severity: warning
+            namespace: wiseling
+          annotations:
+            summary: "No traffic on {{ $labels.app }}"
+            description: "{{ $labels.app }} has received no requests in the last 5 minutes — service may be down or unreachable"
+
+    # ─── Pod Health ────────────────────────────────────────────────────────────
+    - name: wiseling.pod-health
+      rules:
+        - alert: PodCrashLooping
+          expr: |
+            rate(kube_pod_container_status_restarts_total{namespace="wiseling"}[5m]) * 60 > 1
+          for: 2m
+          labels:
+            severity: critical
+            namespace: wiseling
+          annotations:
+            summary: "Pod crash looping in wiseling namespace"
+            description: "Pod {{ $labels.pod }} container {{ $labels.container }} is crash looping ({{ $value | humanize }} restarts/min)"
+
+        - alert: PodNotReady
+          expr: |
+            kube_pod_status_ready{namespace="wiseling", condition="true"} == 0
+          for: 2m
+          labels:
+            severity: warning
+            namespace: wiseling
+          annotations:
+            summary: "Pod not ready in wiseling namespace"
+            description: "Pod {{ $labels.pod }} has been not ready for 2 minutes"
+
+        - alert: DeploymentReplicasMismatch
+          expr: |
+            kube_deployment_spec_replicas{namespace="wiseling"}
+            != kube_deployment_status_available_replicas{namespace="wiseling"}
+          for: 5m
+          labels:
+            severity: warning
+            namespace: wiseling
+          annotations:
+            summary: "Deployment replica mismatch — {{ $labels.deployment }}"
+            description: "{{ $labels.deployment }} has fewer available replicas than desired for 5 minutes"
