@@ -51,8 +51,8 @@ spec:
             port: 8003
           initialDelaySeconds: 15
           periodSeconds: 10
-          failureThreshold: 3
-          timeoutSeconds: 5
+          failureThreshold: 6
+          timeoutSeconds: 10
         envFrom:
         - configMapRef:
             name: wiseling-config
@@ -67,7 +67,7 @@ spec:
         resources:
           limits:
             memory: "256Mi"
-            cpu: "300m"
+            cpu: "500m"
           requests:
             memory: "128Mi"
             cpu: "100m"

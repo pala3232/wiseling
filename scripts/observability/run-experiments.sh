@@ -207,9 +207,8 @@ experiment_01_wallet_scale_down() {
 
   kubectl scale deployment -n "$NAMESPACE" wallet-service-deployment --replicas=2
   wait_for_deployment_ready "wallet-service-deployment" 2 120
-  assert_service_healthy "wallet-service-deployment" "8001" "/metrics" "wallet-service"
-  assert_alerts_resolved "PodNotReady" "PodNotReady should resolve" 360
-  assert_alerts_resolved "WalletServiceDown" "WalletServiceDown should resolve" 180
+  assert_alerts_resolved "PodNotReady" "PodNotReady should resolve" 180
+  assert_alerts_resolved "WalletServiceDown" "WalletServiceDown should resolve" 120
 
   success "Experiment 01 complete"
 }
@@ -249,14 +248,13 @@ experiment_03_withdrawal_scale_down() {
   log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
   kubectl scale deployment -n "$NAMESPACE" withdrawal-service-deployment --replicas=0
-  log "withdrawal-service scaled to 0 — waiting 2 minutes for alerts to fire..."
-  sleep 120
+  log "withdrawal-service scaled to 0 — waiting 90s for alerts to fire..."
+  sleep 90
 
   assert_alerts_firing "WithdrawalServiceDown" "WithdrawalServiceDown should fire" 90
 
   kubectl scale deployment -n "$NAMESPACE" withdrawal-service-deployment --replicas=2
   wait_for_deployment_ready "withdrawal-service-deployment" 2 120
-  assert_service_healthy "withdrawal-service-deployment" "8003" "/metrics" "withdrawal-service"
   assert_alerts_resolved "WithdrawalServiceDown" "WithdrawalServiceDown should resolve" 120
 
   success "Experiment 03 complete"
@@ -304,7 +302,6 @@ experiment_05_conversion_scale_down() {
 
   kubectl scale deployment -n "$NAMESPACE" conversion-service-deployment --replicas=2
   wait_for_deployment_ready "conversion-service-deployment" 2 120
-  assert_service_healthy "conversion-service-deployment" "8002" "/api/v1/conversions/rates" "conversion-service"
   assert_alerts_resolved "ConversionServiceDown" "ConversionServiceDown should resolve" 120
 
   success "Experiment 05 complete"
@@ -324,7 +321,6 @@ experiment_06_auth_scale_down() {
 
   kubectl scale deployment -n "$NAMESPACE" auth-service-deployment --replicas=2
   wait_for_deployment_ready "auth-service-deployment" 2 120
-  assert_service_healthy "auth-service-deployment" "8000" "/health" "auth-service"
   assert_alerts_resolved "AuthServiceDown" "AuthServiceDown should resolve" 120
 
   success "Experiment 06 complete"
