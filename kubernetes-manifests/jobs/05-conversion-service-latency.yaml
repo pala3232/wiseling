@@ -1,0 +1,34 @@
+# Experiment 5: High latency on conversion-service responses
+#
+# PURPOSE: Injects 3s latency on conversion-service HTTP responses.
+# Since FX conversion is the most latency-sensitive operation
+# (users expect near-instant rate locking), this tests p99 latency
+# alerting and client timeout behaviour.
+#
+# EXPECTED BEHAVIOUR:
+#   - p99 latency on /api/v1/conversions spikes above threshold
+#   - Alertmanager fires: HighP99Latency
+#   - Locust reports increased response times in stats
+#   - Clients with short timeouts start seeing errors
+#   - Alert resolves when chaos is removed
+#
+# VALIDATES: Latency alerting pipeline, client timeout handling,
+#            Grafana latency dashboards
+
+apiVersion: chaos-mesh.org/v1alpha1
+kind: HTTPChaos
+metadata:
+  name: conversion-service-latency
+  namespace: wiseling
+spec:
+  mode: all
+  selector:
+    namespaces:
+      - wiseling
+    labelSelectors:
+      app: conversion-service
+  target: Response
+  port: 8002
+  path: "/api/v1/conversions*"
+  delay: "3000ms"
+  duration: "3m"

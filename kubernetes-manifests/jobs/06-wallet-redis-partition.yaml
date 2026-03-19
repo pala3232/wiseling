@@ -1,0 +1,35 @@
+# Experiment 6: Network partition between wallet-service and Redis
+#
+# PURPOSE: wallet-service uses Redis pub/sub to push real-time balance
+# updates to the frontend via SSE. If Redis is unreachable, balance
+# updates stop streaming but core wallet operations (debit/credit via
+# SQS) must continue unaffected — Redis is non-fatal by design
+# (publish failures are caught and logged, not raised).
+#
+# EXPECTED BEHAVIOUR:
+#   - SSE /api/v1/events stops delivering balance_update events
+#   - Core wallet operations (balances, ledger) continue normally
+#   - Redis publish errors logged but not raised as exceptions
+#   - No Alertmanager alert fires for core operations
+#   - Frontend falls back to polling gracefully
+#
+# VALIDATES: Redis failure isolation, non-fatal error handling,
+#            core vs non-core path separation
+
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: wallet-redis-partition
+  namespace: wiseling
+spec:
+  action: partition
+  mode: all
+  selector:
+    namespaces:
+      - wiseling
+    labelSelectors:
+      app: wallet-service
+  direction: both
+  externalTargets:
+    - redis-master.wiseling.svc.cluster.local
+  duration: "3m"

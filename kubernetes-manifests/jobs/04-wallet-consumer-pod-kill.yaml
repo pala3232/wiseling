@@ -1,0 +1,33 @@
+# Experiment 4: Kill wallet-consumer pod
+#
+# PURPOSE: wallet-consumer is the only component that processes SQS events
+# and updates wallet balances. Killing it simulates the most critical
+# failure mode in the platform — no debits or credits can be processed.
+#
+# EXPECTED BEHAVIOUR:
+#   - SQS queue depth grows (messages accumulating)
+#   - Conversions and transfers stay in PENDING state
+#   - wallet-consumer pod restarts within ~30s
+#   - On restart, SQS messages are redelivered and processed
+#   - Idempotency keys prevent double-processing
+#   - DynamoDB outbox buffer acts as safety net for any missed events
+#   - Alertmanager fires: SQSQueueDepthHigh, PodNotReady
+#
+# VALIDATES: Most critical failure path, SQS message durability,
+#            DynamoDB outbox buffer as DR safety net
+
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: wallet-consumer-pod-kill
+  namespace: wiseling
+spec:
+  action: pod-kill
+  mode: one
+  selector:
+    namespaces:
+      - wiseling
+    labelSelectors:
+      app: wallet-consumer
+  gracePeriod: 0
+  duration: "3m"

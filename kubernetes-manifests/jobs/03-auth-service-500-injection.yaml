@@ -1,0 +1,34 @@
+# Experiment 3: HTTP 500 injection on auth-service
+#
+# PURPOSE: Simulates auth-service returning 500s. Since every other
+# service validates JWTs via auth-service (/auth/validate), a failing
+# auth-service cascades across the entire platform.
+#
+# EXPECTED BEHAVIOUR:
+#   - wallet-service, conversion-service, withdrawal-service start
+#     returning 401/503 to authenticated requests
+#   - 5xx error rate alert fires in Alertmanager -> Slack
+#   - Auth service recovers when HTTP chaos is removed
+#   - Services automatically recover without restart
+#
+# VALIDATES: Cascade failure behaviour, 5xx alerting pipeline,
+#            service recovery without manual intervention
+
+apiVersion: chaos-mesh.org/v1alpha1
+kind: HTTPChaos
+metadata:
+  name: auth-service-500-injection
+  namespace: wiseling
+spec:
+  mode: all
+  selector:
+    namespaces:
+      - wiseling
+    labelSelectors:
+      app: auth-service
+  target: Response
+  port: 8000
+  path: "/api/v1/auth/*"
+  abort: false
+  statusCode: 500
+  duration: "3m"

@@ -1,0 +1,32 @@
+# Experiment 1: Kill wallet-service pods
+# 
+# PURPOSE: Validates that in-flight SQS messages are not lost when
+# wallet-service goes down mid-processing. Because SQS only deletes
+# messages AFTER successful processing, they will be redelivered and
+# reprocessed by the next wallet-consumer instance.
+#
+# EXPECTED BEHAVIOUR:
+#   - wallet-service pods restart within ~30s (Kubernetes self-healing)
+#   - Pending SQS messages are redelivered (visibility timeout)
+#   - Idempotency keys in wallet-service prevent double-credits/debits
+#   - Alertmanager fires: PodCrashLooping or PodNotReady
+#   - Alert resolves once pods recover
+#
+# VALIDATES: Kubernetes self-healing, SQS at-least-once delivery,
+#            idempotency key correctness
+
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: wallet-service-pod-kill
+  namespace: wiseling
+spec:
+  action: pod-kill
+  mode: one
+  selector:
+    namespaces:
+      - wiseling
+    labelSelectors:
+      app: wallet-service
+  duration: "2m"
+  gracePeriod: 0
