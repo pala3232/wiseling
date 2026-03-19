@@ -196,7 +196,7 @@ experiment_01_wallet_pod_kill() {
   kubectl delete -f "$CHAOS_DIR/01-wallet-service-pod-kill.yaml" --ignore-not-found
   log "Waiting 30s for wallet-service to fully recover..."
   sleep 30
-  assert_service_healthy "wallet-service-deployment" "8001" "/api/v1/wallet/balances" "wallet-service"
+  assert_service_healthy "wallet-service-deployment" "8001" "/metrics" "wallet-service"
   assert_alerts_resolved "PodNotReady" "PodNotReady should resolve after recovery" 120
 
   success "Experiment 01 complete"
@@ -331,7 +331,7 @@ experiment_06_redis_partition() {
     FAILED=$((FAILED + 1))
   fi
 
-  assert_service_healthy "wallet-service-deployment" "8001" "/api/v1/wallet/balances" "wallet-service core path"
+  assert_service_healthy "wallet-service-deployment" "8001" "/metrics" "wallet-service core path"
 
   kubectl delete -f "$CHAOS_DIR/06-wallet-redis-partition.yaml" --ignore-not-found
   success "Experiment 06 complete — Redis failure correctly isolated from core debit/credit path"

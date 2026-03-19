@@ -188,12 +188,12 @@ additionalPrometheusRulesMap:
           - alert: HighLatency
             expr: |
               histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=~"wiseling/.*"}[5m])) by (le, job)) > 2
-            for: 5m
+            for: 2m
             labels:
               severity: warning
             annotations:
               summary: "High latency on {{ $labels.job }}"
-              description: "95th percentile latency is above 2 seconds on {{ $labels.job }}."
+              description: "95th percentile latency is above 2 seconds on {{ $1labels.job }}."
 
           - alert: LowRequestRate
             expr: |
