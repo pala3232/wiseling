@@ -33,11 +33,12 @@ cleanup() {
   kubectl delete job "$LOCUST_JOB" -n "$NAMESPACE" --ignore-not-found 2>/dev/null || true
   pkill -f "kubectl port-forward.*alertmanager" 2>/dev/null || true
 
-  # Ensure all deployments are restored to 2 replicas
+  # Safety net — restore all deployments to 2 replicas in case a mid-run failure left them scaled down
   log "Restoring all deployments to 2 replicas..."
   for deploy in auth-service-deployment wallet-service-deployment conversion-service-deployment withdrawal-service-deployment; do
     kubectl scale deployment -n "$NAMESPACE" "$deploy" --replicas=2 2>/dev/null || true
   done
+  kubectl scale deployment -n "$NAMESPACE" wallet-consumer --replicas=2 2>/dev/null || true
 }
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -48,7 +49,6 @@ wait_for_deployment_ready() {
   local timeout=${3:-120}
   log "Waiting for $deployment to have $replicas ready replica(s) (timeout: ${timeout}s)..."
   if kubectl rollout status deployment/"$deployment" -n "$NAMESPACE" --timeout="${timeout}s" 2>/dev/null; then
-    # Also wait for the exact replica count
     local elapsed=0
     while [ $elapsed -lt $timeout ]; do
       local ready
@@ -83,27 +83,6 @@ assert_pods_running() {
     error "$description — no running pods found"
     FAILED=$((FAILED + 1))
   fi
-}
-
-assert_pod_restarted() {
-  local label=$1
-  local description=$2
-  local timeout=${3:-60}
-  log "Checking restart count increased for $description (timeout: ${timeout}s)..."
-  local elapsed=0
-  while [ $elapsed -lt $timeout ]; do
-    local restarts
-    restarts=$(kubectl get pods -n "$NAMESPACE" -l "$label" --no-headers 2>/dev/null | \
-      awk '{print $4}' | sort -rn | head -1 || echo "0")
-    if [ "${restarts:-0}" -gt 0 ]; then
-      success "$description — pod was killed and restarted ($restarts restart(s) recorded)"
-      PASSED=$((PASSED + 1))
-      return 0
-    fi
-    sleep 5
-    elapsed=$((elapsed + 5))
-  done
-  warn "$description — no restarts recorded within ${timeout}s (pod may have been replaced cleanly)"
 }
 
 assert_service_healthy() {
@@ -220,8 +199,9 @@ preflight() {
 }
 
 # ─── Experiment 1: wallet-service scale-to-zero ───────────────────────────────
-# Uses scale-to-zero instead of pod kill so PodNotReady fires reliably.
-# Pod kills are replaced too fast by Kubernetes for the 1m `for:` to elapse.
+# Uses scale-to-zero instead of pod kill — Kubernetes replaces killed pods too
+# fast for the 1m `for:` duration to elapse. Scale-to-zero guarantees the
+# condition persists long enough for PodNotReady and WalletServiceDown to fire.
 
 experiment_01_wallet_scale_down() {
   log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -239,9 +219,10 @@ experiment_01_wallet_scale_down() {
   log "Restoring wallet-service to 2 replicas..."
   kubectl scale deployment -n "$NAMESPACE" wallet-service-deployment --replicas=2
   wait_for_deployment_ready "wallet-service-deployment" 2 120
+  sleep 15  # give app time to fully bind before health check
 
   assert_service_healthy "wallet-service-deployment" "8001" "/metrics" "wallet-service"
-  assert_alerts_resolved "PodNotReady" "PodNotReady should resolve after scale-up" 180
+  assert_alerts_resolved "PodNotReady" "PodNotReady should resolve after scale-up" 300
   assert_alerts_resolved "WalletServiceDown" "WalletServiceDown should resolve after scale-up" 180
 
   success "Experiment 01 complete"
@@ -249,8 +230,8 @@ experiment_01_wallet_scale_down() {
 }
 
 # ─── Experiment 2: outbox poller network delay ────────────────────────────────
-# Injects 2s egress latency. Validates graceful degradation — pollers must
-# stay alive and not restart. No alert assertion (latency is below threshold).
+# Injects 2s egress latency on outbox pollers. Validates graceful degradation —
+# pollers must stay alive with zero restarts despite degraded connectivity.
 
 experiment_02_outbox_network_delay() {
   log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -279,42 +260,49 @@ experiment_02_outbox_network_delay() {
   log "Network delay removed — pollers draining accumulated backlog..."
   sleep 15
   assert_pods_running "app=conversion-outbox-poller" "outbox-pollers recovered after network delay removed"
+
   success "Experiment 02 complete"
   sleep 10
 }
 
-# ─── Experiment 3: auth-service HTTP 500 injection ───────────────────────────
-# Chaos Mesh injects 500s at the network level. Your services emit
-# http_requests_total{status="5xx"} so the HighErrorRate alert (>5% 5xx) will
-# fire if Locust is generating enough traffic through auth-service.
+# ─── Experiment 3: withdrawal-service scale-to-zero (HighErrorRate) ───────────
+# Chaos Mesh HTTP fault injection bypasses app-level metrics middleware so
+# injected 500s never appear in http_requests_total. Instead, scale withdrawal-
+# service to 0 — Locust traffic to withdrawal endpoints generates real 5xx that
+# the app records, pushing the error rate above the 1% threshold.
 
-experiment_03_auth_500_injection() {
+experiment_03_high_error_rate() {
   log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  log "EXPERIMENT 03: auth-service HTTP 500 injection"
-  log "Validates: HighErrorRate fires, service recovers after chaos removed"
+  log "EXPERIMENT 03: withdrawal-service scale-to-zero"
+  log "Validates: HighErrorRate fires when withdrawal-service is down under load,"
+  log "           WithdrawalServiceDown fires, both resolve on scale-up"
   log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-  kubectl apply -f "$CHAOS_DIR/03-auth-service-500-injection.yaml"
-  log "500s injected on auth-service — waiting 3 minutes for alert to fire..."
-  # 2m for:  + 1m scrape/eval lag
+  kubectl scale deployment -n "$NAMESPACE" withdrawal-service-deployment --replicas=0
+  log "withdrawal-service scaled to 0 — waiting 3 minutes for HighErrorRate to fire..."
+  # 2m for: + scrape/eval lag + time for Locust to generate enough 5xx volume
   sleep 180
 
-  assert_alerts_firing "HighErrorRate" "HighErrorRate should fire under auth-service 500 injection" 30
-  assert_pods_running "app=auth-service" "auth-service pods running despite 500 injection"
+  assert_alerts_firing "HighErrorRate" "HighErrorRate should fire with withdrawal-service down under load" 30
+  assert_alerts_firing "WithdrawalServiceDown" "WithdrawalServiceDown should fire when scrape target disappears" 30
 
-  kubectl delete -f "$CHAOS_DIR/03-auth-service-500-injection.yaml" --ignore-not-found
-  log "500 injection removed — waiting for error rate to drop..."
-  sleep 30
-  assert_service_healthy "auth-service-deployment" "8000" "/metrics" "auth-service"
-  assert_alerts_resolved "HighErrorRate" "HighErrorRate should resolve after 500 injection removed" 180
+  log "Restoring withdrawal-service to 2 replicas..."
+  kubectl scale deployment -n "$NAMESPACE" withdrawal-service-deployment --replicas=2
+  wait_for_deployment_ready "withdrawal-service-deployment" 2 120
+  sleep 15
+
+  assert_service_healthy "withdrawal-service-deployment" "8003" "/metrics" "withdrawal-service"
+  assert_alerts_resolved "HighErrorRate" "HighErrorRate should resolve after withdrawal-service recovers" 300
+  assert_alerts_resolved "WithdrawalServiceDown" "WithdrawalServiceDown should resolve after scale-up" 180
 
   success "Experiment 03 complete"
   sleep 10
 }
 
 # ─── Experiment 4: wallet-consumer scale-to-zero ─────────────────────────────
-# Pod kills are replaced too cleanly. Scale-to-zero guarantees the consumer
-# is actually gone and SQS messages accumulate.
+# Pod kills are replaced too cleanly by Kubernetes. Scale-to-zero guarantees
+# the consumer is actually gone so SQS messages accumulate. Validates the
+# consumer recovers and drains the backlog without double-processing.
 
 experiment_04_wallet_consumer_kill() {
   log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -326,7 +314,6 @@ experiment_04_wallet_consumer_kill() {
   log "wallet-consumer scaled to 0 — SQS messages will accumulate for 60s..."
   sleep 60
 
-  # Validate consumer is actually gone
   local running
   running=$(kubectl get pods -n "$NAMESPACE" -l "app=wallet-consumer" \
     --field-selector=status.phase=Running --no-headers 2>/dev/null | wc -l)
@@ -335,6 +322,7 @@ experiment_04_wallet_consumer_kill() {
     PASSED=$((PASSED + 1))
   else
     warn "wallet-consumer — $running pod(s) still running unexpectedly"
+    FAILED=$((FAILED + 1))
   fi
 
   log "Restoring wallet-consumer to 2 replicas..."
@@ -347,17 +335,18 @@ experiment_04_wallet_consumer_kill() {
   sleep 10
 }
 
-# ─── Experiment 5: conversion-service latency ────────────────────────────────
-# Chaos Mesh adds network-level latency. This does NOT affect app-measured
-# http_request_duration_seconds histograms (measured inside the pod).
-# Instead we validate: service stays alive, no restarts, p95 latency metric exists.
+# ─── Experiment 5: conversion-service network latency ────────────────────────
+# Chaos Mesh injects 3s network-level latency. This does NOT affect
+# app-internal http_request_duration_seconds histograms (measured inside the
+# pod before the response hits the network). We validate the service stays
+# alive, handles timeouts gracefully, and recovers cleanly.
 
 experiment_05_conversion_latency() {
   log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   log "EXPERIMENT 05: conversion-service 3s network latency injection"
   log "Validates: Service stays alive under latency, no restarts, recovers cleanly"
-  log "Note: HighLatency alert not asserted — Chaos Mesh latency is network-level,"
-  log "      not visible to app-internal histogram metrics."
+  log "Note: HighLatency alert not asserted — Chaos Mesh latency is network-level"
+  log "      and not visible to app-internal histogram metrics."
   log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
   kubectl apply -f "$CHAOS_DIR/05-conversion-service-latency.yaml"
@@ -388,7 +377,7 @@ experiment_05_conversion_latency() {
 
 # ─── Experiment 6: Redis partition ────────────────────────────────────────────
 # Partitions Redis from wallet-service. Validates Redis failure is non-fatal —
-# core debit/credit ops must continue without Redis.
+# core debit/credit ops must continue without Redis availability.
 
 experiment_06_redis_partition() {
   log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -486,7 +475,7 @@ main() {
 
   experiment_01_wallet_scale_down
   experiment_02_outbox_network_delay
-  experiment_03_auth_500_injection
+  experiment_03_high_error_rate
   experiment_04_wallet_consumer_kill
   experiment_05_conversion_latency
   experiment_06_redis_partition

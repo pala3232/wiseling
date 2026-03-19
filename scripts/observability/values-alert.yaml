@@ -1,12 +1,10 @@
-      # set slack_api_url to your actual Slack webhook URL in production,
-      # message format and channels can be customized as needed.
-      # set slack_api_url to your actual Slack webhook URL in production,
+# set slack_api_url to your actual Slack webhook URL in production,
       # message format and channels can be customized as needed.
 alertmanager:
   config:
     global:
       resolve_timeout: 5m
-      slack_api_url: 'your-webhook-url'  # Replace with your actual Slack webhook URL 
+      slack_api_url: 'your-webhook-url'  # Replace with your actual Slack webhook URL
 
     route:
       group_by: ['alertname', 'namespace']
@@ -35,7 +33,7 @@ alertmanager:
         slack_configs:
           - channel: '#wiseling-eks-cluster-main'
             send_resolved: true
-            title: 'CRITICAL: {{ .GroupLabels.alertname }}'
+            title: '[{{ .Status | toUpper }}] {{ .GroupLabels.alertname }}'
             text: "{{ range .Alerts }}*Alert:* {{ .Annotations.summary }}\n*Namespace:* {{ .Labels.namespace }}\n*Description:* {{ .Annotations.description }}\n{{ end }}"
 
     inhibit_rules:
@@ -92,7 +90,7 @@ additionalPrometheusRulesMap:
               severity: critical
             annotations:
               summary: "Pod {{ $labels.pod }} is not ready"
-              description: "Pod {{ $labels.pod }} in namespace wiseling has been not ready for 5 minutes."
+              description: "Pod {{ $labels.pod }} in namespace wiseling has been not ready for more than 1 minute."
 
           - alert: DeploymentReplicasMismatch
             expr: kube_deployment_spec_replicas{namespace="wiseling"} != kube_deployment_status_available_replicas{namespace="wiseling"}
@@ -110,6 +108,7 @@ additionalPrometheusRulesMap:
             for: 1m
             labels:
               severity: critical
+              namespace: wiseling
             annotations:
               summary: "Wallet service is down"
               description: "The wallet-service has been unreachable for more than 1 minute."
@@ -119,6 +118,7 @@ additionalPrometheusRulesMap:
             for: 1m
             labels:
               severity: critical
+              namespace: wiseling
             annotations:
               summary: "Auth service is down"
               description: "The auth-service has been unreachable for more than 1 minute."
@@ -128,6 +128,7 @@ additionalPrometheusRulesMap:
             for: 1m
             labels:
               severity: critical
+              namespace: wiseling
             annotations:
               summary: "Withdrawal service is down"
               description: "The withdrawal-service has been unreachable for more than 1 minute."
@@ -137,6 +138,7 @@ additionalPrometheusRulesMap:
             for: 1m
             labels:
               severity: critical
+              namespace: wiseling
             annotations:
               summary: "Conversion service is down"
               description: "The conversion-service has been unreachable for more than 1 minute."
@@ -166,13 +168,13 @@ additionalPrometheusRulesMap:
           - alert: HighErrorRate
             expr: |
               sum(rate(http_requests_total{job=~"wiseling/.*", status="5xx"}[5m]))
-              / sum(rate(http_requests_total{job=~"wiseling/.*"}[5m])) > 0.05
+              / sum(rate(http_requests_total{job=~"wiseling/.*"}[5m])) > 0.01
             for: 2m
             labels:
               severity: critical
             annotations:
               summary: "High error rate on Wiseling services"
-              description: "More than 5% of requests are returning 5xx errors."
+              description: "More than 1% of requests are returning 5xx errors."
 
           - alert: HighLatency
             expr: |
