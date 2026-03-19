@@ -25,6 +25,7 @@ FAILED=0
 cleanup() {
   log "Cleaning up locust job..."
   kubectl delete job "$LOCUST_JOB" -n "$NAMESPACE" --ignore-not-found 2>/dev/null || true
+  kubectl delete pod crash-loop-test -n "$NAMESPACE" --ignore-not-found 2>/dev/null || true
   pkill -f "kubectl port-forward.*alertmanager" 2>/dev/null || true
   pkill -f "kubectl port-forward.*prometheus" 2>/dev/null || true
   log "Restoring all deployments..."
@@ -227,7 +228,9 @@ preflight() {
     cleanup
     exit 1
   fi
-  success "Preflight complete — all services healthy"
+  # Verify the alerting pipeline itself is alive (dead man's switch)
+  assert_alerts_firing "Watchdog" "Watchdog dead man's switch must be active — proves alerting pipeline is healthy" 30
+  success "Preflight complete — all services healthy and alerting pipeline live"
 }
 
 start_locust() {
@@ -374,6 +377,50 @@ experiment_06_auth_scale_down() {
   success "Experiment 06 complete"
 }
 
+experiment_07_crash_loop() {
+  log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  log "EXPERIMENT 07: PodCrashLooping detection"
+  log "Validates: PodCrashLooping fires on crash-looping pod, clears on deletion"
+  log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+  # Deploy a pod that exits immediately and restarts repeatedly
+  kubectl run crash-loop-test -n "$NAMESPACE" \
+    --image=busybox:1.35 \
+    --restart=Always \
+    --labels="app=crash-loop-test" \
+    -- /bin/sh -c "sleep 2; exit 1"
+
+  log "crash-loop-test deployed — waiting 130s for PodCrashLooping to fire (for: 2m)..."
+  sleep 130
+
+  assert_alerts_firing "PodCrashLooping" "PodCrashLooping should fire on repeatedly-crashing pod" 90
+
+  log "Deleting crash-loop-test pod..."
+  kubectl delete pod crash-loop-test -n "$NAMESPACE" --ignore-not-found 2>/dev/null || true
+
+  log "Waiting for crash-loop pod metrics to clear in Prometheus (timeout: 120s)..."
+  local elapsed=0
+  while [ $elapsed -lt 120 ]; do
+    local count
+    count=$(curl -sf "${PROMETHEUS_URL}/api/v1/query" \
+      --data-urlencode 'query=rate(kube_pod_container_status_restarts_total{namespace="wiseling",pod="crash-loop-test"}[5m])' 2>/dev/null | \
+      python3 -c "import sys, json; d = json.load(sys.stdin); print(len(d.get('data', {}).get('result', [])))" 2>/dev/null || echo "-1")
+    if [ "${count}" = "0" ]; then
+      success "PodCrashLooping: crash-loop pod metrics cleared from Prometheus after ${elapsed}s — alert will resolve"
+      PASSED=$((PASSED + 1))
+      break
+    fi
+    sleep 10
+    elapsed=$((elapsed + 10))
+  done
+  if [ $elapsed -ge 120 ]; then
+    warn "crash-loop pod metrics did not clear from Prometheus after 120s"
+    FAILED=$((FAILED + 1))
+  fi
+
+  success "Experiment 07 complete"
+}
+
 print_summary() {
   local total=$((PASSED + FAILED))
   echo ""
@@ -413,6 +460,7 @@ main() {
   experiment_04_wallet_consumer_kill
   experiment_05_conversion_scale_down
   experiment_06_auth_scale_down
+  experiment_07_crash_loop
 
   cleanup
   print_summary
