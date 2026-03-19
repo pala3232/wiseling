@@ -3,8 +3,10 @@ name: Deploy Terraform Infrastructure
 on:
   workflow_dispatch:
     inputs:
-      layer:
-        description: 'Layer to target (01-network, 02-data, 03-iam, 04-eks, or leave blank for all)'
+      target:
+        description: |
+          Specific layer to target, e.g. "primary/03-eks" or "dr/02-data" or "global".
+          Leave blank to run the full staged deployment (both regions in parallel).
         required: false
         default: ''
       action:
@@ -15,56 +17,261 @@ on:
         options:
           - plan
           - apply
+      health_check_protocol:
+        description: 'global layer only — HTTP on first apply, HTTPS after cert validates'
+        required: false
+        default: 'HTTP'
+        type: choice
+        options:
+          - HTTP
+          - HTTPS
+
+# Shared env vars injected into every job
+env:
+  TF_VAR_admin_iam_arn: ${{ secrets.ADMIN_IAM_ARN }}
+  TF_VAR_db_password:   ${{ secrets.DB_PASSWORD }}
+  TF_VAR_domain_name:   ${{ secrets.DOMAIN_NAME }}
+
+# ── Reusable step definitions (via YAML anchors aren't supported in GHA,
+#    so each job is explicit — but they all follow the same 4-step pattern) ──
 
 jobs:
-  terraform:
+
+  # ════════════════════════════════════════════════════════════
+  # STAGE 1 — Networks (no dependencies, run in parallel)
+  # ════════════════════════════════════════════════════════════
+
+  network-primary:
+    if: github.event.inputs.target == '' || github.event.inputs.target == 'primary/01-network'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ap-southeast-2
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-
-      - name: Run Terraform
-        env:
-          TF_VAR_admin_iam_arn: ${{ secrets.ADMIN_IAM_ARN }}
-          TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
+          aws-region:            ap-southeast-2
+      - uses: hashicorp/setup-terraform@v3
+      - name: Apply primary/01-network
         run: |
-          LAYERS=("01-network" "02-data" "04-eks" "03-iam")
-          TARGET="${{ github.event.inputs.layer }}"
-          ACTION="${{ github.event.inputs.action }}"
+          cd terraform/envs/primary/01-network
+          terraform init -reconfigure
+          terraform ${{ github.event.inputs.action }} -auto-approve
 
-          run_layer() {
-            local layer="$1"
-            echo "══ Layer: $layer ══"
-            cd "$GITHUB_WORKSPACE/terraform/layers/$layer"
-            terraform init -reconfigure
+  network-dr:
+    if: github.event.inputs.target == '' || github.event.inputs.target == 'dr/01-network'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ap-southeast-1
+      - uses: hashicorp/setup-terraform@v3
+      - name: Apply dr/01-network
+        run: |
+          cd terraform/envs/dr/01-network
+          terraform init -reconfigure
+          terraform ${{ github.event.inputs.action }} -auto-approve
 
-            if [ "$layer" = "02-data" ] && [ "$ACTION" = "apply" ]; then
-              for repo in auth-service wallet-service conversion-service withdrawal-service frontend; do
-                terraform import "aws_ecr_repository.services[\"$repo\"]" "wiseling/$repo" 2>/dev/null || true
-              done
-            fi
+  # ════════════════════════════════════════════════════════════
+  # STAGE 2 — Data (primary) + both EKS clusters (parallel)
+  #   primary/02-data needs: network-primary
+  #   primary/03-eks  needs: network-primary
+  #   dr/03-eks       needs: network-dr
+  # ════════════════════════════════════════════════════════════
 
-            if [ "$ACTION" = "plan" ]; then
-              terraform plan
-            else
-              terraform apply -auto-approve
-            fi
-            cd "$GITHUB_WORKSPACE"
-          }
-
-          if [ -n "$TARGET" ]; then
-            run_layer "$TARGET"
-          else
-            for layer in "${LAYERS[@]}"; do
-              run_layer "$layer"
+  data-primary:
+    needs: network-primary
+    if: |
+      always() &&
+      (needs.network-primary.result == 'success' || needs.network-primary.result == 'skipped') &&
+      (github.event.inputs.target == '' || github.event.inputs.target == 'primary/02-data')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ap-southeast-2
+      - uses: hashicorp/setup-terraform@v3
+      - name: Apply primary/02-data
+        run: |
+          cd terraform/envs/primary/02-data
+          terraform init -reconfigure
+          # Import existing ECR repos to avoid destroy/recreate on first run
+          if [ "${{ github.event.inputs.action }}" = "apply" ]; then
+            for repo in auth-service wallet-service conversion-service withdrawal-service frontend locust; do
+              terraform import "module.data.aws_ecr_repository.services[\"$repo\"]" "wiseling/$repo" 2>/dev/null || true
             done
           fi
+          terraform ${{ github.event.inputs.action }} -auto-approve
+
+  eks-primary:
+    needs: network-primary
+    if: |
+      always() &&
+      (needs.network-primary.result == 'success' || needs.network-primary.result == 'skipped') &&
+      (github.event.inputs.target == '' || github.event.inputs.target == 'primary/03-eks')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ap-southeast-2
+      - uses: hashicorp/setup-terraform@v3
+      - name: Apply primary/03-eks
+        run: |
+          cd terraform/envs/primary/03-eks
+          terraform init -reconfigure
+          terraform ${{ github.event.inputs.action }} -auto-approve
+
+  eks-dr:
+    needs: network-dr
+    if: |
+      always() &&
+      (needs.network-dr.result == 'success' || needs.network-dr.result == 'skipped') &&
+      (github.event.inputs.target == '' || github.event.inputs.target == 'dr/03-eks')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ap-southeast-1
+      - uses: hashicorp/setup-terraform@v3
+      - name: Apply dr/03-eks
+        run: |
+          cd terraform/envs/dr/03-eks
+          terraform init -reconfigure
+          terraform ${{ github.event.inputs.action }} -auto-approve
+
+  # ════════════════════════════════════════════════════════════
+  # STAGE 3 — IAM (both) + DR data (parallel)
+  #   primary/04-iam needs: eks-primary
+  #   dr/04-iam      needs: eks-dr
+  #   dr/02-data     needs: data-primary (for primary RDS ARN) + network-dr
+  # ════════════════════════════════════════════════════════════
+
+  iam-primary:
+    needs: eks-primary
+    if: |
+      always() &&
+      (needs.eks-primary.result == 'success' || needs.eks-primary.result == 'skipped') &&
+      (github.event.inputs.target == '' || github.event.inputs.target == 'primary/04-iam')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ap-southeast-2
+      - uses: hashicorp/setup-terraform@v3
+      - name: Apply primary/04-iam
+        run: |
+          cd terraform/envs/primary/04-iam
+          terraform init -reconfigure
+          terraform ${{ github.event.inputs.action }} -auto-approve
+
+  data-dr:
+    needs: [data-primary, network-dr]
+    if: |
+      always() &&
+      (needs.data-primary.result == 'success' || needs.data-primary.result == 'skipped') &&
+      (needs.network-dr.result == 'success' || needs.network-dr.result == 'skipped') &&
+      (github.event.inputs.target == '' || github.event.inputs.target == 'dr/02-data')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ap-southeast-1
+      - uses: hashicorp/setup-terraform@v3
+      - name: Apply dr/02-data
+        run: |
+          cd terraform/envs/dr/02-data
+          terraform init -reconfigure
+          terraform ${{ github.event.inputs.action }} -auto-approve
+
+  iam-dr:
+    needs: eks-dr
+    if: |
+      always() &&
+      (needs.eks-dr.result == 'success' || needs.eks-dr.result == 'skipped') &&
+      (github.event.inputs.target == '' || github.event.inputs.target == 'dr/04-iam')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ap-southeast-1
+      - uses: hashicorp/setup-terraform@v3
+      - name: Apply dr/04-iam
+        run: |
+          cd terraform/envs/dr/04-iam
+          terraform init -reconfigure
+          terraform ${{ github.event.inputs.action }} -auto-approve
+
+  # ════════════════════════════════════════════════════════════
+  # GLOBAL — Route53, ACM, health checks
+  #   Run separately after both clusters are configured (Helm/ingress deployed).
+  #   First apply: health_check_protocol=HTTP  → outputs NS records → delegate in Cloudflare
+  #   Second apply: health_check_protocol=HTTPS → cert validates, health checks flip to 443
+  # ════════════════════════════════════════════════════════════
+
+  global:
+    if: github.event.inputs.target == 'global'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            us-east-1
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Fetch ALB DNS names from both clusters
+        run: |
+          # Primary ALB
+          aws eks update-kubeconfig --name wiseling-eks-cluster --region ap-southeast-2
+          PRIMARY_ALB=$(kubectl get ingress wiseling-ingress -n wiseling \
+            -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+          echo "TF_VAR_primary_alb_dns=$PRIMARY_ALB" >> $GITHUB_ENV
+          echo "Primary ALB: $PRIMARY_ALB"
+
+          # DR ALB
+          aws eks update-kubeconfig --name wiseling-eks-cluster-sgp --region ap-southeast-1
+          DR_ALB=$(kubectl get ingress wiseling-ingress -n wiseling \
+            -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+          echo "TF_VAR_dr_alb_dns=$DR_ALB" >> $GITHUB_ENV
+          echo "DR ALB: $DR_ALB"
+
+      - name: Apply global
+        env:
+          TF_VAR_health_check_protocol: ${{ github.event.inputs.health_check_protocol }}
+        run: |
+          cd terraform/envs/global
+          terraform init -reconfigure
+          terraform ${{ github.event.inputs.action }} -auto-approve
+
+      - name: Output Route53 nameservers
+        if: github.event.inputs.action == 'apply'
+        run: |
+          cd terraform/envs/global
+          echo "══ Route 53 nameservers (paste into Cloudflare) ══"
+          terraform output name_servers
+          echo ""
+          echo "══ ACM cert ARNs (use in ingress annotations after HTTPS apply) ══"
+          terraform output primary_cert_arn || true
+          terraform output dr_cert_arn || true

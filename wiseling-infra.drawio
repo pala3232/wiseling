@@ -1,0 +1,473 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" version="29.6.3">
+  <diagram name="Wiseling Infrastructure" id="wiseling-infra-v2">
+    <mxGraphModel dx="1500" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ── Background ──────────────────────────────────────────────────── -->
+        <mxCell id="i-bg" value="" vertex="1" parent="1"
+          style="rounded=0;whiteSpace=wrap;html=1;fillColor=light-dark(#0050EF,#2A3A60);strokeColor=#001DBC;opacity=40;fontColor=#ffffff;">
+          <mxGeometry x="0" y="0" width="1800" height="1010" as="geometry" />
+        </mxCell>
+
+        <!-- ── Title ──────────────────────────────────────────────────────── -->
+        <mxCell id="i-title" value="Wiseling AWS Infrastructure" vertex="1" parent="1"
+          style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=22;fontStyle=1;fontColor=light-dark(#000000,#DFCFCF);">
+          <mxGeometry x="600" y="12" width="600" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="i-subtitle" value="Primary: ap-southeast-2 (Sydney)  ·  Failover: ap-southeast-1 (Singapore)" vertex="1" parent="1"
+          style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=12;fontColor=light-dark(#000000,#DFCFCF);">
+          <mxGeometry x="450" y="50" width="900" height="18" as="geometry" />
+        </mxCell>
+
+        <!-- ── Route 53 ────────────────────────────────────────────────────── -->
+        <mxCell id="i-r53-box" value="" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=light-dark(#000000,#1a0a00);strokeColor=#FF9900;strokeWidth=2;arcSize=8;opacity=50;">
+          <mxGeometry x="648" y="76" width="504" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="i-r53-icon" value="" vertex="1" parent="1"
+          style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.route_53;labelBackgroundColor=none;sketch=0;fillColor=#FF9900;strokeColor=none;">
+          <mxGeometry x="662" y="87" width="36" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="i-r53-lbl" value="&lt;b&gt;Route 53&lt;/b&gt;  ·  Failover DNS  ·  Health Checks  ·  ACM Certificates (Primary &amp;gt; DR)" vertex="1" parent="1"
+          style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=11;fontColor=light-dark(#000000,#DFCFCF);">
+          <mxGeometry x="706" y="87" width="436" height="36" as="geometry" />
+        </mxCell>
+
+        <!-- ════════════════════════════════════════════════════════════════
+             LEFT VPC — ap-southeast-2 (Primary)
+             ════════════════════════════════════════════════════════════════ -->
+        <mxCell id="i-vpc-main" value="" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=light-dark(#000000,#341B00);strokeColor=#FF9900;strokeWidth=2;verticalAlign=top;arcSize=2;opacity=40;">
+          <mxGeometry x="20" y="150" width="830" height="810" as="geometry" />
+        </mxCell>
+        <mxCell id="i-vpc-main-lbl" value="&lt;b&gt;ap-southeast-2 — Sydney (Primary)&lt;/b&gt;        VPC 10.0.0/16" vertex="1" parent="1"
+          style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=13;fontColor=#FF9900;fontStyle=1;">
+          <mxGeometry x="32" y="155" width="808" height="22" as="geometry" />
+        </mxCell>
+
+        <!-- Public Subnets -->
+        <mxCell id="i-pub-main" value="" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=light-dark(#000000,#001030);strokeColor=#4a9eff;strokeWidth=1;dashed=1;opacity=40;">
+          <mxGeometry x="35" y="181" width="600" height="58" as="geometry" />
+        </mxCell>
+        <mxCell id="i-pub-main-lbl" value="Public Subnets (10.0.4.0/24 – 10.0.5.0/24)" vertex="1" parent="1"
+          style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=10;fontColor=#88bbff;">
+          <mxGeometry x="46" y="183" width="360" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="i-psub-a-main" value="Public Subnet A" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1a2a3a;strokeColor=#4a9eff;strokeWidth=1;align=center;verticalAlign=middle;fontSize=9;fontColor=#88bbff;">
+          <mxGeometry x="46" y="202" width="100" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="i-psub-b-main" value="Public Subnet B" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1a2a3a;strokeColor=#4a9eff;strokeWidth=1;align=center;verticalAlign=middle;fontSize=9;fontColor=#88bbff;">
+          <mxGeometry x="156" y="202" width="100" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="i-alb-main-icon" value="" vertex="1" parent="1"
+          style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.application_load_balancer;labelBackgroundColor=none;sketch=0;fillColor=#FF9900;strokeColor=none;">
+          <mxGeometry x="455" y="192" width="36" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="i-alb-main-lbl" value="ALB · Internet-facing" vertex="1" parent="1"
+          style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=9;fontColor=#aaaacc;">
+          <mxGeometry x="496" y="198" width="130" height="24" as="geometry" />
+        </mxCell>
+
+        <!-- Private subnets label -->
+        <mxCell id="i-priv-main-lbl" value="Private Subnets (10.0.1.0/24 – 10.0.3.0/24)" vertex="1" parent="1"
+          style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=10;fontColor=#88bbff;fontStyle=2;">
+          <mxGeometry x="35" y="248" width="400" height="14" as="geometry" />
+        </mxCell>
+
+        <!-- EKS Cluster container -->
+        <mxCell id="i-eks-main" value="" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=light-dark(#000000,#001030);strokeColor=#4a9eff;strokeWidth=2;verticalAlign=top;arcSize=2;opacity=40;">
+          <mxGeometry x="35" y="264" width="600" height="482" as="geometry" />
+        </mxCell>
+        <mxCell id="i-eks-main-icon" value="" vertex="1" parent="1"
+          style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.eks;labelBackgroundColor=none;sketch=0;fillColor=#FF9900;strokeColor=none;">
+          <mxGeometry x="46" y="272" width="28" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="i-eks-main-title" value="&lt;b&gt;EKS Cluster — wiseling-eks-cluster&lt;/b&gt;" vertex="1" parent="1"
+          style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=12;fontColor=#4a9eff;">
+          <mxGeometry x="80" y="272" width="330" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="i-karpenter-main" value="Karpenter · Bootstrap Group" vertex="1" parent="1"
+          style="text;html=1;strokeColor=none;fillColor=none;align=right;verticalAlign=middle;fontSize=10;fontColor=#88bbff;fontStyle=2;">
+          <mxGeometry x="410" y="272" width="215" height="28" as="geometry" />
+        </mxCell>
+
+        <!-- API Services namespace -->
+        <mxCell id="i-ns-api-main" value="" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=light-dark(#000000,#000820);strokeColor=#4a9eff;strokeWidth=1;dashed=1;verticalAlign=top;arcSize=3;opacity=40;">
+          <mxGeometry x="48" y="304" width="574" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="i-ns-api-main-lbl" value="API Services (namespace: wiseling)" vertex="1" parent="1"
+          style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=10;fontColor=#88bbff;fontStyle=2;">
+          <mxGeometry x="56" y="308" width="300" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="i-svc-frontend-main" value="&lt;b&gt;frontend&lt;/b&gt;&lt;br&gt;:80 nginx SPA" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1a3a5c;strokeColor=#4a9eff;strokeWidth=2;fontSize=10;fontColor=#FFFFFF;arcSize=8;">
+          <mxGeometry x="56" y="328" width="100" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="i-svc-auth-main" value="&lt;b&gt;auth-service&lt;/b&gt;&lt;br&gt;:8000" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1a3a5c;strokeColor=#4a9eff;strokeWidth=2;fontSize=10;fontColor=#FFFFFF;arcSize=8;">
+          <mxGeometry x="164" y="328" width="105" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="i-svc-wallet-main" value="&lt;b&gt;wallet-service&lt;/b&gt;&lt;br&gt;:8001" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1a3a5c;strokeColor=#4a9eff;strokeWidth=2;fontSize=10;fontColor=#FFFFFF;arcSize=8;">
+          <mxGeometry x="277" y="328" width="105" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="i-svc-conv-main" value="&lt;b&gt;conversion-service&lt;/b&gt;&lt;br&gt;:8002" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1a3a5c;strokeColor=#4a9eff;strokeWidth=2;fontSize=10;fontColor=#FFFFFF;arcSize=8;">
+          <mxGeometry x="390" y="328" width="112" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="i-svc-wdraw-main" value="&lt;b&gt;withdrawal-service&lt;/b&gt;&lt;br&gt;:8003" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1a3a5c;strokeColor=#4a9eff;strokeWidth=2;fontSize=10;fontColor=#FFFFFF;arcSize=8;">
+          <mxGeometry x="510" y="328" width="108" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Redis row -->
+        <mxCell id="i-redis-main-master" value="&lt;b&gt;redis-master&lt;/b&gt;" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2a1a4a;strokeColor=#9966ff;strokeWidth=2;fontSize=10;fontColor=#FFFFFF;arcSize=8;">
+          <mxGeometry x="48" y="458" width="130" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="i-redis-main-replica" value="&lt;b&gt;redis-replica&lt;/b&gt;" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2a1a4a;strokeColor=#9966ff;strokeWidth=1;fontSize=10;fontColor=#FFFFFF;arcSize=8;">
+          <mxGeometry x="188" y="458" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <!-- Workers namespace -->
+        <mxCell id="i-ns-worker-main" value="" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=light-dark(#000000,#001000);strokeColor=#44bb44;strokeWidth=1;dashed=1;verticalAlign=top;arcSize=3;opacity=40;">
+          <mxGeometry x="48" y="506" width="574" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="i-ns-worker-main-lbl" value="Workers (namespace: wiseling)" vertex="1" parent="1"
+          style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=10;fontColor=#88dd88;fontStyle=2;">
+          <mxGeometry x="56" y="510" width="300" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="i-worker-wc-main" value="&lt;b&gt;wallet-consumer&lt;/b&gt;&lt;br&gt;SQS consumer" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1a3a1a;strokeColor=#44bb44;strokeWidth=2;fontSize=10;fontColor=#FFFFFF;arcSize=8;">
+          <mxGeometry x="56" y="530" width="120" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="i-worker-cop-main" value="&lt;b&gt;conversion-outbox-poller&lt;/b&gt;" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1a3a1a;strokeColor=#44bb44;strokeWidth=2;fontSize=10;fontColor=#FFFFFF;arcSize=8;">
+          <mxGeometry x="184" y="530" width="135" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="i-worker-wop-main" value="&lt;b&gt;withdrawal-outbox-poller&lt;/b&gt;" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1a3a1a;strokeColor=#44bb44;strokeWidth=2;fontSize=10;fontColor=#FFFFFF;arcSize=8;">
+          <mxGeometry x="327" y="530" width="135" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="i-worker-dc-main" value="&lt;b&gt;dynamo-cleaner&lt;/b&gt;" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1a3a1a;strokeColor=#44bb44;strokeWidth=2;fontSize=10;fontColor=#FFFFFF;arcSize=8;">
+          <mxGeometry x="470" y="530" width="118" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- wallet-reconciler standalone (primary — DR failover mode) -->
+        <mxCell id="i-worker-wr-main" value="&lt;b&gt;wallet-reconciler&lt;/b&gt;&lt;br&gt;DR failover on startup" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1a3a1a;strokeColor=#44bb44;strokeWidth=2;fontSize=10;fontColor=#FFFFFF;arcSize=8;">
+          <mxGeometry x="56" y="648" width="165" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- IRSA label -->
+        <mxCell id="i-irsa-main" value="IRSA: pod-role  ·  DynamoDB  ·  Secrets Manager  ·  CloudWatch" vertex="1" parent="1"
+          style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=9;fontColor=#666688;fontStyle=2;">
+          <mxGeometry x="48" y="712" width="574" height="16" as="geometry" />
+        </mxCell>
+
+        <!-- ── AWS Managed Services column — PRIMARY ───────────────────────── -->
+        <mxCell id="i-aws-main-container" value="AWS Managed Services" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=light-dark(#000000,#1a0a00);strokeColor=#FF9900;strokeWidth=1;verticalAlign=top;fontSize=10;fontColor=#FF9900;fontStyle=1;arcSize=3;opacity=40;">
+          <mxGeometry x="650" y="264" width="185" height="482" as="geometry" />
+        </mxCell>
+
+        <mxCell id="i-rds-main-icon" value="" vertex="1" parent="1"
+          style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.rds;labelBackgroundColor=none;sketch=0;fillColor=#FF9900;strokeColor=none;">
+          <mxGeometry x="658" y="290" width="36" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="i-rds-main-lbl" value="&lt;b&gt;RDS PostgreSQL 16&lt;/b&gt;&lt;br&gt;1 primary" vertex="1" parent="1"
+          style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=10;fontColor=light-dark(#000000,#DFCFCF);">
+          <mxGeometry x="700" y="288" width="126" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="i-sqs-main-icon" value="" vertex="1" parent="1"
+          style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.sqs;labelBackgroundColor=none;sketch=0;fillColor=#FF9900;strokeColor=none;">
+          <mxGeometry x="658" y="380" width="36" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="i-sqs-main-lbl" value="&lt;b&gt;SQS&lt;/b&gt;&lt;br&gt;conversions, withdrawals&lt;br&gt;+ DLQ" vertex="1" parent="1"
+          style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=10;fontColor=light-dark(#000000,#DFCFCF);">
+          <mxGeometry x="700" y="376" width="126" height="44" as="geometry" />
+        </mxCell>
+
+        <mxCell id="i-dynamo-main-icon" value="" vertex="1" parent="1"
+          style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.dynamodb;labelBackgroundColor=none;sketch=0;fillColor=#FF9900;strokeColor=none;">
+          <mxGeometry x="658" y="476" width="36" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="i-dynamo-main-lbl" value="&lt;b&gt;DynamoDB&lt;/b&gt;&lt;br&gt;wiseling-outbox&lt;br&gt;Global Table" vertex="1" parent="1"
+          style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=10;fontColor=light-dark(#000000,#DFCFCF);">
+          <mxGeometry x="700" y="472" width="126" height="44" as="geometry" />
+        </mxCell>
+
+        <mxCell id="i-sm-main-icon" value="" vertex="1" parent="1"
+          style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.secrets_manager;labelBackgroundColor=none;sketch=0;fillColor=#FF9900;strokeColor=none;">
+          <mxGeometry x="658" y="570" width="36" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="i-sm-main-lbl" value="&lt;b&gt;Secrets Manager&lt;/b&gt;&lt;br&gt;db-info · jwt-key" vertex="1" parent="1"
+          style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=10;fontColor=light-dark(#000000,#DFCFCF);">
+          <mxGeometry x="700" y="570" width="126" height="36" as="geometry" />
+        </mxCell>
+
+        <mxCell id="i-ecr-main-icon" value="" vertex="1" parent="1"
+          style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.ecr;labelBackgroundColor=none;sketch=0;fillColor=#FF9900;strokeColor=none;">
+          <mxGeometry x="658" y="656" width="36" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="i-ecr-main-lbl" value="&lt;b&gt;ECR&lt;/b&gt;&lt;br&gt;3 repositories" vertex="1" parent="1"
+          style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=10;fontColor=light-dark(#000000,#DFCFCF);">
+          <mxGeometry x="700" y="656" width="126" height="36" as="geometry" />
+        </mxCell>
+
+        <mxCell id="i-s3-main-icon" value="" vertex="1" parent="1"
+          style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;labelBackgroundColor=none;sketch=0;fillColor=#FF9900;strokeColor=none;">
+          <mxGeometry x="658" y="728" width="36" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="i-s3-main-lbl" value="&lt;b&gt;S3&lt;/b&gt;&lt;br&gt;terraform state" vertex="1" parent="1"
+          style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=10;fontColor=light-dark(#000000,#DFCFCF);">
+          <mxGeometry x="700" y="728" width="126" height="36" as="geometry" />
+        </mxCell>
+
+        <!-- ════════════════════════════════════════════════════════════════
+             RIGHT VPC — ap-southeast-1 (DR)
+             ════════════════════════════════════════════════════════════════ -->
+        <mxCell id="i-vpc-dr" value="" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=light-dark(#000000,#341B00);strokeColor=#FF9900;strokeWidth=2;verticalAlign=top;arcSize=2;opacity=40;">
+          <mxGeometry x="870" y="150" width="830" height="810" as="geometry" />
+        </mxCell>
+        <mxCell id="i-vpc-dr-lbl" value="&lt;b&gt;ap-southeast-1 — Singapore (DR)&lt;/b&gt;        VPC 10.1.0/16" vertex="1" parent="1"
+          style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=13;fontColor=#FF9900;fontStyle=1;">
+          <mxGeometry x="882" y="155" width="808" height="22" as="geometry" />
+        </mxCell>
+
+        <!-- Public Subnets (DR) -->
+        <mxCell id="i-pub-dr" value="" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=light-dark(#000000,#001030);strokeColor=#4a9eff;strokeWidth=1;dashed=1;opacity=40;">
+          <mxGeometry x="885" y="181" width="600" height="58" as="geometry" />
+        </mxCell>
+        <mxCell id="i-pub-dr-lbl" value="Public Subnets (10.1.4.0/24 – 10.1.5.0/24)" vertex="1" parent="1"
+          style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=10;fontColor=#88bbff;">
+          <mxGeometry x="896" y="183" width="360" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="i-psub-a-dr" value="Public Subnet A" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1a2a3a;strokeColor=#4a9eff;strokeWidth=1;align=center;verticalAlign=middle;fontSize=9;fontColor=#88bbff;">
+          <mxGeometry x="896" y="202" width="100" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="i-psub-b-dr" value="Public Subnet B" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1a2a3a;strokeColor=#4a9eff;strokeWidth=1;align=center;verticalAlign=middle;fontSize=9;fontColor=#88bbff;">
+          <mxGeometry x="1006" y="202" width="100" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="i-alb-dr-icon" value="" vertex="1" parent="1"
+          style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.application_load_balancer;labelBackgroundColor=none;sketch=0;fillColor=#FF9900;strokeColor=none;">
+          <mxGeometry x="1305" y="192" width="36" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="i-alb-dr-lbl" value="ALB · Internet-facing (DR)" vertex="1" parent="1"
+          style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=9;fontColor=#aaaacc;">
+          <mxGeometry x="1346" y="198" width="140" height="24" as="geometry" />
+        </mxCell>
+
+        <!-- Private subnets label (DR) -->
+        <mxCell id="i-priv-dr-lbl" value="Private Subnets (10.1.1.0/24 – 10.1.3.0/24)" vertex="1" parent="1"
+          style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=10;fontColor=#88bbff;fontStyle=2;">
+          <mxGeometry x="885" y="248" width="400" height="14" as="geometry" />
+        </mxCell>
+
+        <!-- EKS Cluster container (DR) -->
+        <mxCell id="i-eks-dr" value="" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=light-dark(#000000,#001030);strokeColor=#4a9eff;strokeWidth=2;verticalAlign=top;arcSize=2;opacity=40;">
+          <mxGeometry x="885" y="264" width="600" height="482" as="geometry" />
+        </mxCell>
+        <mxCell id="i-eks-dr-icon" value="" vertex="1" parent="1"
+          style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.eks;labelBackgroundColor=none;sketch=0;fillColor=#FF9900;strokeColor=none;">
+          <mxGeometry x="896" y="272" width="28" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="i-eks-dr-title" value="&lt;b&gt;EKS Cluster — wiseling-eks-cluster-sgp&lt;/b&gt;" vertex="1" parent="1"
+          style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=12;fontColor=#4a9eff;">
+          <mxGeometry x="930" y="272" width="360" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="i-karpenter-dr" value="Karpenter · Bootstrap Group" vertex="1" parent="1"
+          style="text;html=1;strokeColor=none;fillColor=none;align=right;verticalAlign=middle;fontSize=10;fontColor=#88bbff;fontStyle=2;">
+          <mxGeometry x="1260" y="272" width="215" height="28" as="geometry" />
+        </mxCell>
+
+        <!-- API Services namespace (DR) -->
+        <mxCell id="i-ns-api-dr" value="" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=light-dark(#000000,#000820);strokeColor=#4a9eff;strokeWidth=1;dashed=1;verticalAlign=top;arcSize=3;opacity=40;">
+          <mxGeometry x="898" y="304" width="574" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="i-ns-api-dr-lbl" value="API Services (namespace: wiseling)" vertex="1" parent="1"
+          style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=10;fontColor=#88bbff;fontStyle=2;">
+          <mxGeometry x="906" y="308" width="300" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="i-svc-frontend-dr" value="&lt;b&gt;frontend&lt;/b&gt;&lt;br&gt;:80 nginx SPA" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1a3a5c;strokeColor=#4a9eff;strokeWidth=2;fontSize=10;fontColor=#FFFFFF;arcSize=8;">
+          <mxGeometry x="906" y="328" width="100" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="i-svc-auth-dr" value="&lt;b&gt;auth-service&lt;/b&gt;&lt;br&gt;:8000" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1a3a5c;strokeColor=#4a9eff;strokeWidth=2;fontSize=10;fontColor=#FFFFFF;arcSize=8;">
+          <mxGeometry x="1014" y="328" width="105" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="i-svc-wallet-dr" value="&lt;b&gt;wallet-service&lt;/b&gt;&lt;br&gt;:8001" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1a3a5c;strokeColor=#4a9eff;strokeWidth=2;fontSize=10;fontColor=#FFFFFF;arcSize=8;">
+          <mxGeometry x="1127" y="328" width="105" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="i-svc-conv-dr" value="&lt;b&gt;conversion-service&lt;/b&gt;&lt;br&gt;:8002" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1a3a5c;strokeColor=#4a9eff;strokeWidth=2;fontSize=10;fontColor=#FFFFFF;arcSize=8;">
+          <mxGeometry x="1240" y="328" width="112" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="i-svc-wdraw-dr" value="&lt;b&gt;withdrawal-service&lt;/b&gt;&lt;br&gt;:8003" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1a3a5c;strokeColor=#4a9eff;strokeWidth=2;fontSize=10;fontColor=#FFFFFF;arcSize=8;">
+          <mxGeometry x="1360" y="328" width="108" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Redis row (DR) -->
+        <mxCell id="i-redis-dr-master" value="&lt;b&gt;redis-master&lt;/b&gt;" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2a1a4a;strokeColor=#9966ff;strokeWidth=2;fontSize=10;fontColor=#FFFFFF;arcSize=8;">
+          <mxGeometry x="898" y="458" width="130" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="i-redis-dr-replica" value="&lt;b&gt;redis-replica&lt;/b&gt;" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2a1a4a;strokeColor=#9966ff;strokeWidth=1;fontSize=10;fontColor=#FFFFFF;arcSize=8;">
+          <mxGeometry x="1038" y="458" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <!-- Workers namespace (DR) -->
+        <mxCell id="i-ns-worker-dr" value="" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=light-dark(#000000,#001000);strokeColor=#44bb44;strokeWidth=1;dashed=1;verticalAlign=top;arcSize=3;opacity=40;">
+          <mxGeometry x="898" y="506" width="574" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="i-ns-worker-dr-lbl" value="Workers (namespace: wiseling)" vertex="1" parent="1"
+          style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=10;fontColor=#88dd88;fontStyle=2;">
+          <mxGeometry x="906" y="510" width="300" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="i-worker-wc-dr" value="&lt;b&gt;wallet-consumer&lt;/b&gt;&lt;br&gt;SQS consumer" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1a3a1a;strokeColor=#44bb44;strokeWidth=2;fontSize=10;fontColor=#FFFFFF;arcSize=8;">
+          <mxGeometry x="906" y="530" width="120" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="i-worker-cop-dr" value="&lt;b&gt;conversion-outbox-poller&lt;/b&gt;" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1a3a1a;strokeColor=#44bb44;strokeWidth=2;fontSize=10;fontColor=#FFFFFF;arcSize=8;">
+          <mxGeometry x="1034" y="530" width="135" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="i-worker-wop-dr" value="&lt;b&gt;withdrawal-outbox-poller&lt;/b&gt;" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1a3a1a;strokeColor=#44bb44;strokeWidth=2;fontSize=10;fontColor=#FFFFFF;arcSize=8;">
+          <mxGeometry x="1177" y="530" width="135" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="i-worker-wr-dr" value="&lt;b&gt;wallet-reconciler&lt;/b&gt;&lt;br&gt;DR replay on startup" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1a3a1a;strokeColor=#44bb44;strokeWidth=2;fontSize=10;fontColor=#FFFFFF;arcSize=8;">
+          <mxGeometry x="1320" y="530" width="130" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- IRSA label (DR) -->
+        <mxCell id="i-irsa-dr" value="IRSA: pod-role  ·  DynamoDB  ·  Secrets Manager  ·  CloudWatch" vertex="1" parent="1"
+          style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=9;fontColor=#666688;fontStyle=2;">
+          <mxGeometry x="898" y="656" width="574" height="16" as="geometry" />
+        </mxCell>
+
+        <!-- ── AWS Managed Services column — DR ────────────────────────────── -->
+        <mxCell id="i-aws-dr-container" value="AWS Managed Services" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=light-dark(#000000,#1a0a00);strokeColor=#FF9900;strokeWidth=1;verticalAlign=top;fontSize=10;fontColor=#FF9900;fontStyle=1;arcSize=3;opacity=40;">
+          <mxGeometry x="1500" y="264" width="185" height="482" as="geometry" />
+        </mxCell>
+
+        <mxCell id="i-rds-dr-icon" value="" vertex="1" parent="1"
+          style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.rds;labelBackgroundColor=none;sketch=0;fillColor=#FF9900;strokeColor=none;">
+          <mxGeometry x="1508" y="290" width="36" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="i-rds-dr-lbl" value="&lt;b&gt;RDS Replica&lt;/b&gt;&lt;br&gt;PostgreSQL · no&lt;br&gt;read replicas" vertex="1" parent="1"
+          style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=10;fontColor=light-dark(#000000,#DFCFCF);">
+          <mxGeometry x="1550" y="286" width="126" height="44" as="geometry" />
+        </mxCell>
+
+        <mxCell id="i-sqs-dr-icon" value="" vertex="1" parent="1"
+          style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.sqs;labelBackgroundColor=none;sketch=0;fillColor=#FF9900;strokeColor=none;">
+          <mxGeometry x="1508" y="380" width="36" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="i-sqs-dr-lbl" value="&lt;b&gt;SQS&lt;/b&gt;&lt;br&gt;conversions,&lt;br&gt;withdrawals" vertex="1" parent="1"
+          style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=10;fontColor=light-dark(#000000,#DFCFCF);">
+          <mxGeometry x="1550" y="376" width="126" height="44" as="geometry" />
+        </mxCell>
+
+        <mxCell id="i-dynamo-dr-icon" value="" vertex="1" parent="1"
+          style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.dynamodb;labelBackgroundColor=none;sketch=0;fillColor=#FF9900;strokeColor=none;">
+          <mxGeometry x="1508" y="476" width="36" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="i-dynamo-dr-lbl" value="&lt;b&gt;DynamoDB&lt;/b&gt;&lt;br&gt;wiseling-outbox&lt;br&gt;Global Table replica" vertex="1" parent="1"
+          style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=10;fontColor=light-dark(#000000,#DFCFCF);">
+          <mxGeometry x="1550" y="472" width="126" height="44" as="geometry" />
+        </mxCell>
+
+        <mxCell id="i-sm-dr-icon" value="" vertex="1" parent="1"
+          style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.secrets_manager;labelBackgroundColor=none;sketch=0;fillColor=#FF9900;strokeColor=none;">
+          <mxGeometry x="1508" y="570" width="36" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="i-sm-dr-lbl" value="&lt;b&gt;Secrets Manager&lt;/b&gt;&lt;br&gt;db-info · jwt-key" vertex="1" parent="1"
+          style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=10;fontColor=light-dark(#000000,#DFCFCF);">
+          <mxGeometry x="1550" y="570" width="126" height="36" as="geometry" />
+        </mxCell>
+
+        <!-- ════════════════════════════════════════════════════════════════
+             ARROWS
+             ════════════════════════════════════════════════════════════════ -->
+
+        <!-- Route 53 → ALB Primary (solid orange — active path) -->
+        <mxCell id="i-arr-r53-alb-main" edge="1" parent="1"
+          style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#FF9900;strokeWidth=2;endArrow=open;endFill=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;fontColor=#FF9900;fontSize=10;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="648" y="107" as="sourcePoint" />
+            <mxPoint x="473" y="228" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Route 53 → ALB DR (dashed orange — failover path) -->
+        <mxCell id="i-arr-r53-alb-dr" edge="1" parent="1"
+          style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#FF9900;strokeWidth=2;dashed=1;endArrow=open;endFill=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;fontColor=#FF9900;fontSize=10;"
+          value="&lt;span style=&quot;background-color: light-dark(rgb(0,0,0),rgb(42,58,96));&quot;&gt;failover&lt;/span&gt;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1152" y="107" as="sourcePoint" />
+            <mxPoint x="1323" y="228" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- RDS cross-region replication -->
+        <mxCell id="i-arr-rds-repl" edge="1" parent="1"
+          style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#FF9900;strokeWidth=1;dashed=1;endArrow=open;endFill=0;fontColor=#FF9900;fontSize=10;"
+          value="&lt;span style=&quot;background-color: light-dark(rgb(0,0,0),rgb(42,58,96));&quot;&gt;replication&lt;/span&gt;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="697" y="308" as="sourcePoint" />
+            <mxPoint x="1508" y="308" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- DynamoDB global table sync -->
+        <mxCell id="i-arr-dynamo-repl" edge="1" parent="1"
+          style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#9966ff;strokeWidth=1;dashed=1;endArrow=open;endFill=0;startArrow=open;startFill=0;fontColor=#9966ff;fontSize=10;"
+          value="&lt;span style=&quot;background-color: light-dark(rgb(0,0,0),rgb(42,58,96));&quot;&gt;global table&lt;/span&gt;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="697" y="494" as="sourcePoint" />
+            <mxPoint x="1508" y="494" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ════════════════════════════════════════════════════════════════
+             LEGEND
+             ════════════════════════════════════════════════════════════════ -->
+        <mxCell id="i-legend-box" value="" vertex="1" parent="1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=light-dark(#000000,#1a1a2a);strokeColor=#4a9eff;strokeWidth=1;opacity=40;">
+          <mxGeometry x="20" y="972" width="1760" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="i-legend-txt" value="━━ Failover DNS (Route 53)   ╌╌ Failover path   ━━ RDS cross-region replication   ↔ DynamoDB Global Table sync   IRSA: internal AWS service access via pod IAM roles" vertex="1" parent="1"
+          style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=10;fontColor=light-dark(#000000,#DFCFCF);">
+          <mxGeometry x="20" y="972" width="1760" height="24" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
