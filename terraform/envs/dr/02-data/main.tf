@@ -38,7 +38,7 @@ module "data" {
   db_password        = var.db_password
   private_subnet_ids = data.terraform_remote_state.network_dr.outputs.all_private_subnet_ids
   rds_sg_id          = data.terraform_remote_state.network_dr.outputs.rds_sg_id
-  primary_rds_arn    = data.terraform_remote_state.data_primary.outputs.rds_arn
+  primary_rds_arn    = try(data.terraform_remote_state.data_primary.outputs.rds_arn, "")
 }
 
 output "replica_endpoint"      { value = module.data.replica_endpoint }
