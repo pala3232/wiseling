@@ -41,4 +41,20 @@ log "Applying Grafana ingress..."
 kubectl apply -f "$SCRIPT_DIR/grafana-ingress.yaml" -n monitoring
 kubectl apply -f "$SCRIPT_DIR/grafana-network-policy.yaml" -n monitoring
 
+log "Adding Chaos Mesh Helm repo..."
+helm repo add chaos-mesh https://charts.chaos-mesh.org
+helm repo update
+
+log "Installing Chaos Mesh..."
+helm upgrade --install chaos-mesh chaos-mesh/chaos-mesh \
+  --namespace chaos-mesh \
+  --create-namespace \
+  --version 2.6.3 \
+  --set chaosDaemon.resources.requests.cpu=50m \
+  --set chaosDaemon.resources.requests.memory=64Mi \
+  --wait \
+  --timeout 5m
+
+log "Observability stack and Chaos Mesh installation complete!"
+
 log "Observability stack installation complete!"
