@@ -80,7 +80,7 @@ additionalPrometheusRulesMap:
               severity: critical
             annotations:
               summary: "Pod {{ $labels.pod }} is crash looping"
-              description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} has restarted {{ $value }} times in the last 5 minutes."
+              description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} is restarting {{ $value | humanize }} times/sec — check logs immediately."
               runbook_url: "https://github.com/wiseling/wiseling-ms/blob/main/runbooks/pod-crash-looping.md"
 
           - alert: PodNotReady

@@ -46,6 +46,7 @@ helm repo add chaos-mesh https://charts.chaos-mesh.org
 helm repo update
 
 log "Installing Chaos Mesh..."
+helm rollback chaos-mesh -n chaos-mesh 2>/dev/null || true
 helm upgrade --install chaos-mesh chaos-mesh/chaos-mesh \
   --namespace chaos-mesh \
   --create-namespace \
