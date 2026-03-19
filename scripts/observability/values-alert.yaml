@@ -3,7 +3,7 @@
 alertmanager:
   config:
     global:
-      resolve_timeout: 5m
+      resolve_timeout: 1m
       slack_api_url: 'your-webhook-url'  # Replace with your actual Slack webhook URL
 
     route:
