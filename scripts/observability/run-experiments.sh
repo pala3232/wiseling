@@ -177,7 +177,7 @@ preflight() {
   assert_pods_running "app=conversion-service" "conversion-service"
   assert_pods_running "app=withdrawal-service" "withdrawal-service"
   assert_pods_running "app=wallet-consumer" "wallet-consumer"
-  assert_pods_running "component=outbox-poller" "outbox-pollers"
+  assert_pods_running "app=conversion-outbox-poller" "conversion-outbox-poller"
 
   success "Preflight complete — all services healthy"
 }
