@@ -302,66 +302,44 @@ experiment_04_wallet_consumer_kill() {
 
 # ─── Experiment 5: conversion-service latency (~2 min) ───────────────────────
 
-experiment_05_conversion_latency() {
+experiment_05_conversion_scale_down() {
   log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  log "EXPERIMENT 05: conversion-service 3s network latency"
-  log "Validates: Service stays alive, no restarts, recovers cleanly"
+  log "EXPERIMENT 05: conversion-service scale-to-zero"
+  log "Validates: ConversionServiceDown fires and resolves"
   log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-  kubectl apply -f "$CHAOS_DIR/05-conversion-service-latency.yaml"
-  log "3s latency injected — running for 90s..."
+  kubectl scale deployment -n "$NAMESPACE" conversion-service-deployment --replicas=0
+  log "conversion-service scaled to 0 — waiting 90s for alerts to fire..."
   sleep 90
 
-  assert_pods_running "app=conversion-service" "conversion-service alive under latency"
+  assert_alerts_firing "ConversionServiceDown" "ConversionServiceDown should fire" 90
 
-  local restarts
-  restarts=$(kubectl get pods -n "$NAMESPACE" -l "app=conversion-service" --no-headers 2>/dev/null | \
-    awk '{print $4}' | sort -rn | head -1 || echo "0")
-  if [ "${restarts:-0}" -eq 0 ]; then
-    success "conversion-service — no restarts under 3s latency"
-    PASSED=$((PASSED + 1))
-  else
-    warn "conversion-service restarted ${restarts} time(s)"
-    FAILED=$((FAILED + 1))
-  fi
-
-  kubectl delete -f "$CHAOS_DIR/05-conversion-service-latency.yaml" --ignore-not-found
-  sleep 10
+  kubectl scale deployment -n "$NAMESPACE" conversion-service-deployment --replicas=2
+  wait_for_deployment_ready "conversion-service-deployment" 2 60
   assert_service_healthy "conversion-service-deployment" "8002" "/api/v1/conversions/rates" "conversion-service"
+  assert_alerts_resolved "ConversionServiceDown" "ConversionServiceDown should resolve" 120
 
   success "Experiment 05 complete"
 }
 
 # ─── Experiment 6: Redis partition (~2 min) ───────────────────────────────────
 
-experiment_06_redis_partition() {
+experiment_06_auth_scale_down() {
   log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  log "EXPERIMENT 06: wallet-service Redis network partition"
-  log "Validates: Redis failure non-fatal, core wallet ops continue"
+  log "EXPERIMENT 06: auth-service scale-to-zero (cascade failure)"
+  log "Validates: AuthServiceDown fires and resolves"
   log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-  kubectl apply -f "$CHAOS_DIR/06-wallet-redis-partition.yaml"
-  log "Redis partitioned from wallet-service — running for 90s..."
+  kubectl scale deployment -n "$NAMESPACE" auth-service-deployment --replicas=0
+  log "auth-service scaled to 0 — waiting 90s for alerts to fire..."
   sleep 90
 
-  assert_pods_running "app=wallet-service" "wallet-service alive despite Redis partition"
+  assert_alerts_firing "AuthServiceDown" "AuthServiceDown should fire" 90
 
-  local restarts
-  restarts=$(kubectl get pods -n "$NAMESPACE" -l "app=wallet-service" --no-headers 2>/dev/null | \
-    awk '{print $4}' | sort -rn | head -1 || echo "0")
-  if [ "${restarts:-0}" -eq 0 ]; then
-    success "wallet-service — no restarts during Redis partition"
-    PASSED=$((PASSED + 1))
-  else
-    warn "wallet-service restarted ${restarts} time(s)"
-    FAILED=$((FAILED + 1))
-  fi
-
-  assert_service_healthy "wallet-service-deployment" "8001" "/metrics" "wallet-service core path"
-
-  kubectl delete -f "$CHAOS_DIR/06-wallet-redis-partition.yaml" --ignore-not-found
-  sleep 10
-  assert_service_healthy "wallet-service-deployment" "8001" "/metrics" "wallet-service post-recovery"
+  kubectl scale deployment -n "$NAMESPACE" auth-service-deployment --replicas=2
+  wait_for_deployment_ready "auth-service-deployment" 2 60
+  assert_service_healthy "auth-service-deployment" "8000" "/health" "auth-service"
+  assert_alerts_resolved "AuthServiceDown" "AuthServiceDown should resolve" 120
 
   success "Experiment 06 complete"
 }
@@ -407,8 +385,8 @@ main() {
   experiment_02_outbox_network_delay
   experiment_03_high_error_rate
   experiment_04_wallet_consumer_kill
-  experiment_05_conversion_latency
-  experiment_06_redis_partition
+  experiment_05_conversion_scale_down
+  experiment_06_auth_scale_down
 
   cleanup
   print_summary
