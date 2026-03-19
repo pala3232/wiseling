@@ -9,7 +9,7 @@ alertmanager:
       slack_api_url: 'your-webhook-url' # Replace with your actual Slack webhook URL
 
     route:
-      group_by: ['alertname', 'namespace']
+      group_by: ['alertname', 'namespace', 'pod']
       group_wait: 10s
       group_interval: 5m
       repeat_interval: 12h
@@ -193,7 +193,7 @@ additionalPrometheusRulesMap:
               severity: warning
             annotations:
               summary: "High latency on {{ $labels.job }}"
-              description: "95th percentile latency is above 2 seconds on {{ $1labels.job }}."
+              description: "95th percentile latency is above 2 seconds on {{ $labels.job }}."
 
           - alert: LowRequestRate
             expr: |
