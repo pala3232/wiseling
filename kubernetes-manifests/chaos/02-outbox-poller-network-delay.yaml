@@ -27,10 +27,10 @@ spec:
     namespaces:
       - wiseling
     labelSelectors:
-      component: outbox-poller
+      component: conversion-outbox-poller
   delay:
     latency: "2000ms"
     correlation: "25"
     jitter: "500ms"
-  direction: egress
+  direction: to
   duration: "3m"
