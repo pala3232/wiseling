@@ -10,7 +10,7 @@ alertmanager:
 
     route:
       group_by: ['alertname', 'namespace']
-      group_wait: 30s
+      group_wait: 10s
       group_interval: 5m
       repeat_interval: 12h
       receiver: slack-alerts
@@ -98,7 +98,7 @@ additionalPrometheusRulesMap:
 
           - alert: PodNotReady
             expr: kube_pod_status_ready{namespace="wiseling", condition="true"} == 0
-            for: 5m
+            for: 1m
             labels:
               severity: critical
             annotations:
@@ -217,7 +217,7 @@ additionalPrometheusRulesMap:
               description: "More than 10 4xx/sec — possible brute force or token abuse."
 
           - alert: ForbiddenRequestSpike
-            expr: sum(rate(http_requests_total{job=~"wiseling/.*", status="4xx"}[5m])) > 5
+            expr: sum(rate(http_requests_total{job=~"wiseling/.*", status="4xx"}[5m])) > 50
             for: 2m
             labels:
               severity: warning
