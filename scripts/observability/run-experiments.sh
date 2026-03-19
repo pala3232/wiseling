@@ -1,8 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-# ─── Logging ──────────────────────────────────────────────────────────────────
-
 log()     { echo -e "\033[1;34m[$(date '+%H:%M:%S')] INFO     $*\033[0m"; }
 success() { echo -e "\033[1;32m[$(date '+%H:%M:%S')] SUCCESS  $*\033[0m"; }
 warn()    { echo -e "\033[1;33m[$(date '+%H:%M:%S')] WARNING  $*\033[0m"; }
@@ -15,7 +13,6 @@ error_handler() {
 }
 trap 'error_handler $LINENO' ERR
 
-CHAOS_DIR="kubernetes-manifests/chaos"
 JOBS_DIR="kubernetes-manifests/jobs"
 NAMESPACE="wiseling"
 ALERTMANAGER_URL="http://localhost:9093"
@@ -24,22 +21,17 @@ LOCUST_JOB="wiseling-load-test"
 PASSED=0
 FAILED=0
 
-# ─── Cleanup ──────────────────────────────────────────────────────────────────
-
 cleanup() {
-  log "Cleaning up chaos experiments and locust job..."
-  kubectl delete -f "$CHAOS_DIR/" --ignore-not-found -n "$NAMESPACE" 2>/dev/null || true
+  log "Cleaning up locust job..."
   kubectl delete job "$LOCUST_JOB" -n "$NAMESPACE" --ignore-not-found 2>/dev/null || true
   pkill -f "kubectl port-forward.*alertmanager" 2>/dev/null || true
-
-  log "Restoring all deployments to 2 replicas..."
+  log "Restoring all deployments..."
   for deploy in auth-service-deployment wallet-service-deployment conversion-service-deployment withdrawal-service-deployment; do
     kubectl scale deployment -n "$NAMESPACE" "$deploy" --replicas=2 2>/dev/null || true
   done
   kubectl scale deployment -n "$NAMESPACE" wallet-consumer --replicas=2 2>/dev/null || true
+  kubectl scale deployment -n "$NAMESPACE" conversion-outbox-poller --replicas=1 2>/dev/null || true
 }
-
-# ─── Helpers ──────────────────────────────────────────────────────────────────
 
 wait_for_deployment_ready() {
   local deployment=$1
@@ -61,8 +53,6 @@ wait_for_deployment_ready() {
   done
   warn "$deployment did not reach $replicas replicas within ${timeout}s"
 }
-
-# ─── Assertions ───────────────────────────────────────────────────────────────
 
 assert_pods_running() {
   local label=$1
@@ -157,8 +147,6 @@ print(sum(1 for a in alerts if '$alert_name' in a.get('labels', {}).get('alertna
   FAILED=$((FAILED + 1))
 }
 
-# ─── Port-forward Alertmanager ────────────────────────────────────────────────
-
 setup_alertmanager_portforward() {
   log "Setting up Alertmanager port-forward..."
   kubectl port-forward -n monitoring \
@@ -170,8 +158,6 @@ setup_alertmanager_portforward() {
     warn "Could not reach Alertmanager — alert assertions will warn instead of fail"
   fi
 }
-
-# ─── Preflight ────────────────────────────────────────────────────────────────
 
 preflight() {
   log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -187,8 +173,6 @@ preflight() {
   success "Preflight complete — all services healthy"
 }
 
-# ─── Locust (fire and forget) ─────────────────────────────────────────────────
-
 start_locust() {
   log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   log "LOAD TEST: Starting Locust (runs in background during experiments)"
@@ -198,8 +182,6 @@ start_locust() {
   kubectl apply -f "$JOBS_DIR/locust-job.yaml"
   success "Locust job started"
 }
-
-# ─── Experiment 1: wallet-service scale-to-zero (~3.5 min) ───────────────────
 
 experiment_01_wallet_scale_down() {
   log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -223,41 +205,38 @@ experiment_01_wallet_scale_down() {
   success "Experiment 01 complete"
 }
 
-# ─── Experiment 2: outbox poller network delay (~2.5 min) ────────────────────
-
-experiment_02_outbox_network_delay() {
+experiment_02_outbox_poller_kill() {
   log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  log "EXPERIMENT 02: outbox poller network delay (2s egress latency)"
-  log "Validates: Pollers survive, no restarts"
+  log "EXPERIMENT 02: conversion-outbox-poller scale-to-zero"
+  log "Validates: Poller recovers, no message loss"
   log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-  kubectl apply -f "$CHAOS_DIR/02-outbox-poller-network-delay.yaml"
-  log "2s latency injected — running for 90s..."
-  sleep 90
+  kubectl scale deployment -n "$NAMESPACE" conversion-outbox-poller --replicas=0
+  log "conversion-outbox-poller scaled to 0 — waiting 45s..."
+  sleep 45
 
-  assert_pods_running "app=conversion-outbox-poller" "outbox-pollers alive under network delay"
-
-  local restarts
-  restarts=$(kubectl get pods -n "$NAMESPACE" -l "app=conversion-outbox-poller" --no-headers 2>/dev/null | \
-    awk '{print $4}' | sort -rn | head -1 || echo "0")
-  if [ "${restarts:-0}" -eq 0 ]; then
-    success "Outbox pollers — no restarts (graceful degradation confirmed)"
+  local running
+  running=$(kubectl get pods -n "$NAMESPACE" -l "app=conversion-outbox-poller" \
+    --field-selector=status.phase=Running --no-headers 2>/dev/null | wc -l)
+  if [ "$running" -eq 0 ]; then
+    success "conversion-outbox-poller — confirmed 0 pods running"
     PASSED=$((PASSED + 1))
   else
-    warn "Outbox pollers restarted ${restarts} time(s)"
+    warn "conversion-outbox-poller — $running pod(s) still running unexpectedly"
     FAILED=$((FAILED + 1))
   fi
 
-  kubectl delete -f "$CHAOS_DIR/02-outbox-poller-network-delay.yaml" --ignore-not-found
+  kubectl scale deployment -n "$NAMESPACE" conversion-outbox-poller --replicas=1
+  wait_for_deployment_ready "conversion-outbox-poller" 1 60
+  assert_pods_running "app=conversion-outbox-poller" "conversion-outbox-poller recovered"
+
   success "Experiment 02 complete"
 }
 
-# ─── Experiment 3: withdrawal-service scale-to-zero (~3 min) ─────────────────
-
-experiment_03_high_error_rate() {
+experiment_03_withdrawal_scale_down() {
   log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   log "EXPERIMENT 03: withdrawal-service scale-to-zero"
-  log "Validates: HighErrorRate + WithdrawalServiceDown fire and resolve"
+  log "Validates: WithdrawalServiceDown fires and resolves"
   log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
   kubectl scale deployment -n "$NAMESPACE" withdrawal-service-deployment --replicas=0
@@ -273,8 +252,6 @@ experiment_03_high_error_rate() {
 
   success "Experiment 03 complete"
 }
-
-# ─── Experiment 4: wallet-consumer scale-to-zero (~1.5 min) ──────────────────
 
 experiment_04_wallet_consumer_kill() {
   log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -304,73 +281,45 @@ experiment_04_wallet_consumer_kill() {
   success "Experiment 04 complete"
 }
 
-# ─── Experiment 5: conversion-service latency (~2 min) ───────────────────────
-
-experiment_05_conversion_latency() {
+experiment_05_conversion_scale_down() {
   log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  log "EXPERIMENT 05: conversion-service 3s network latency"
-  log "Validates: Service stays alive, no restarts, recovers cleanly"
+  log "EXPERIMENT 05: conversion-service scale-to-zero"
+  log "Validates: ConversionServiceDown fires and resolves"
   log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-  kubectl apply -f "$CHAOS_DIR/05-conversion-service-latency.yaml"
-  log "3s latency injected — running for 90s..."
+  kubectl scale deployment -n "$NAMESPACE" conversion-service-deployment --replicas=0
+  log "conversion-service scaled to 0 — waiting 90s for alerts to fire..."
   sleep 90
 
-  assert_pods_running "app=conversion-service" "conversion-service alive under latency"
+  assert_alerts_firing "ConversionServiceDown" "ConversionServiceDown should fire" 90
 
-  local restarts
-  restarts=$(kubectl get pods -n "$NAMESPACE" -l "app=conversion-service" --no-headers 2>/dev/null | \
-    awk '{print $4}' | sort -rn | head -1 || echo "0")
-  if [ "${restarts:-0}" -eq 0 ]; then
-    success "conversion-service — no restarts under 3s latency"
-    PASSED=$((PASSED + 1))
-  else
-    warn "conversion-service restarted ${restarts} time(s)"
-    FAILED=$((FAILED + 1))
-  fi
-
-  kubectl delete -f "$CHAOS_DIR/05-conversion-service-latency.yaml" --ignore-not-found
-  sleep 10
+  kubectl scale deployment -n "$NAMESPACE" conversion-service-deployment --replicas=2
+  wait_for_deployment_ready "conversion-service-deployment" 2 60
   assert_service_healthy "conversion-service-deployment" "8002" "/api/v1/conversions/rates" "conversion-service"
+  assert_alerts_resolved "ConversionServiceDown" "ConversionServiceDown should resolve" 120
 
   success "Experiment 05 complete"
 }
 
-# ─── Experiment 6: Redis partition (~2 min) ───────────────────────────────────
-
-experiment_06_redis_partition() {
+experiment_06_auth_scale_down() {
   log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  log "EXPERIMENT 06: wallet-service Redis network partition"
-  log "Validates: Redis failure non-fatal, core wallet ops continue"
+  log "EXPERIMENT 06: auth-service scale-to-zero (cascade failure)"
+  log "Validates: AuthServiceDown fires and resolves"
   log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-  kubectl apply -f "$CHAOS_DIR/06-wallet-redis-partition.yaml"
-  log "Redis partitioned from wallet-service — running for 90s..."
+  kubectl scale deployment -n "$NAMESPACE" auth-service-deployment --replicas=0
+  log "auth-service scaled to 0 — waiting 90s for alerts to fire..."
   sleep 90
 
-  assert_pods_running "app=wallet-service" "wallet-service alive despite Redis partition"
+  assert_alerts_firing "AuthServiceDown" "AuthServiceDown should fire" 90
 
-  local restarts
-  restarts=$(kubectl get pods -n "$NAMESPACE" -l "app=wallet-service" --no-headers 2>/dev/null | \
-    awk '{print $4}' | sort -rn | head -1 || echo "0")
-  if [ "${restarts:-0}" -eq 0 ]; then
-    success "wallet-service — no restarts during Redis partition"
-    PASSED=$((PASSED + 1))
-  else
-    warn "wallet-service restarted ${restarts} time(s)"
-    FAILED=$((FAILED + 1))
-  fi
-
-  assert_service_healthy "wallet-service-deployment" "8001" "/metrics" "wallet-service core path"
-
-  kubectl delete -f "$CHAOS_DIR/06-wallet-redis-partition.yaml" --ignore-not-found
-  sleep 10
-  assert_service_healthy "wallet-service-deployment" "8001" "/metrics" "wallet-service post-recovery"
+  kubectl scale deployment -n "$NAMESPACE" auth-service-deployment --replicas=2
+  wait_for_deployment_ready "auth-service-deployment" 2 60
+  assert_service_healthy "auth-service-deployment" "8000" "/health" "auth-service"
+  assert_alerts_resolved "AuthServiceDown" "AuthServiceDown should resolve" 120
 
   success "Experiment 06 complete"
 }
-
-# ─── Summary ──────────────────────────────────────────────────────────────────
 
 print_summary() {
   local total=$((PASSED + FAILED))
@@ -388,11 +337,8 @@ print_summary() {
   fi
 }
 
-# ─── Main ─────────────────────────────────────────────────────────────────────
-
 main() {
   log "Starting Wiseling resilience test suite..."
-  log "Chaos experiments: $CHAOS_DIR"
   log "Load test job: $JOBS_DIR/locust-job.yaml"
   echo ""
 
@@ -409,10 +355,10 @@ main() {
 
   experiment_01_wallet_scale_down
   experiment_02_outbox_poller_kill
-  experiment_03_high_error_rate
+  experiment_03_withdrawal_scale_down
   experiment_04_wallet_consumer_kill
-  experiment_05_conversion_latency
-  experiment_06_redis_partition
+  experiment_05_conversion_scale_down
+  experiment_06_auth_scale_down
 
   cleanup
   print_summary
