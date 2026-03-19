@@ -251,7 +251,7 @@ experiment_03_auth_500_injection() {
   kubectl delete -f "$CHAOS_DIR/03-auth-service-500-injection.yaml" --ignore-not-found
   log "500 injection removed — validating auth-service health endpoint recovery..."
   sleep 15
-  assert_service_healthy "auth-service-deployment" "8000" "/api/v1/auth/health" "auth-service"
+  assert_service_healthy "auth-service-deployment" "8000" "/health" "auth-service"
   assert_alerts_resolved "HighErrorRate" "HighErrorRate should resolve after 500 injection removed" 120
 
   success "Experiment 03 complete"
