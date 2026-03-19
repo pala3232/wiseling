@@ -7,7 +7,7 @@ alertmanager:
       slack_api_url: 'your-webhook-url'  # Replace with your actual Slack webhook URL
 
     route:
-      group_by: ['alertname', 'namespace']
+      group_by: ['namespace']
       group_wait: 10s
       group_interval: 1m
       repeat_interval: 12h
@@ -26,14 +26,14 @@ alertmanager:
         slack_configs:
           - channel: '#wiseling-eks-cluster-main'
             send_resolved: true
-            title: '[{{ .Status | toUpper }}] {{ .GroupLabels.alertname }}'
+            title: '[{{ .Status | toUpper }}] {{ range .Alerts }}{{ .Labels.alertname }} {{ end }}'
             text: "{{ range .Alerts }}*Alert:* {{ .Annotations.summary }}\n*Namespace:* {{ .Labels.namespace }}\n*Severity:* {{ .Labels.severity }}\n*Description:* {{ .Annotations.description }}\n{{ end }}"
 
       - name: slack-critical
         slack_configs:
           - channel: '#wiseling-eks-cluster-main'
             send_resolved: true
-            title: '[{{ .Status | toUpper }}] {{ .GroupLabels.alertname }}'
+            title: '[{{ .Status | toUpper }}] {{ range .Alerts }}{{ .Labels.alertname }} {{ end }}'
             text: "{{ range .Alerts }}*Alert:* {{ .Annotations.summary }}\n*Namespace:* {{ .Labels.namespace }}\n*Description:* {{ .Annotations.description }}\n{{ end }}"
 
     inhibit_rules:
@@ -41,7 +41,7 @@ alertmanager:
           severity: critical
         target_match:
           severity: warning
-        equal: ['alertname', 'namespace']
+        equal: ['namespace']
 
 prometheus:
   prometheusSpec:
