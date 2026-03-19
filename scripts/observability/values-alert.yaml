@@ -88,6 +88,7 @@ additionalPrometheusRulesMap:
               kube_pod_status_ready{namespace="wiseling", condition="true"} == 0
               unless on(pod, namespace) kube_pod_status_phase{namespace="wiseling", phase="Succeeded"}
               unless on(pod, namespace) kube_pod_status_phase{namespace="wiseling", phase="Failed"}
+              unless on(pod, namespace) (kube_pod_owner{namespace="wiseling", owner_kind="Job"})
             for: 1m
             labels:
               severity: critical
@@ -256,6 +257,13 @@ additionalPrometheusRulesMap:
             annotations:
               summary: "Node {{ $labels.node }} is not ready"
               description: "Node {{ $labels.node }} has been in NotReady state for more than 2 minutes."
+
+defaultRules:
+  disabled:
+    Watchdog: true
+    InfoInhibitor: true
+  params:
+    cpuThrottlingPercent: 80
 
 grafana:
   enabled: true
