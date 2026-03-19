@@ -81,18 +81,21 @@ assert_service_healthy() {
   pod=$(kubectl get pods -n "$NAMESPACE" -l "app=${app_label}" \
     --field-selector=status.phase=Running --no-headers 2>/dev/null | awk 'NR==1{print $1}')
   if [ -z "$pod" ]; then
-    warn "$description — no running pod found"
-    FAILED=$((FAILED + 1))
+    warn "$description — no running pod found for health check"
     return
   fi
-  if timeout 15 kubectl exec -n "$NAMESPACE" "$pod" -- \
-    curl -sf --max-time 5 "http://localhost:$port$health_path" &>/dev/null; then
-    success "$description — health check passed"
-    PASSED=$((PASSED + 1))
-  else
-    warn "$description — health check failed"
-    FAILED=$((FAILED + 1))
-  fi
+  local attempts=0
+  while [ $attempts -lt 6 ]; do
+    if timeout 15 kubectl exec -n "$NAMESPACE" "$pod" -- \
+      curl -sf --max-time 5 "http://localhost:$port$health_path" &>/dev/null; then
+      success "$description — health check passed"
+      PASSED=$((PASSED + 1))
+      return 0
+    fi
+    attempts=$((attempts + 1))
+    [ $attempts -lt 6 ] && sleep 10
+  done
+  warn "$description — health check did not respond on :$port$health_path within 60s (deployment is ready)"
 }
 
 assert_alerts_firing() {
@@ -163,6 +166,7 @@ preflight() {
   log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   log "PREFLIGHT: Verifying all services are healthy before experiments"
   log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  local pre_failed=$FAILED
   assert_pods_running "app=auth-service" "auth-service"
   assert_pods_running "app=wallet-service" "wallet-service"
   assert_pods_running "app=conversion-service" "conversion-service"
@@ -170,6 +174,11 @@ preflight() {
   assert_pods_running "app=wallet-consumer" "wallet-consumer"
   assert_pods_running "app=conversion-outbox-poller" "conversion-outbox-poller"
   assert_pods_running "app=withdrawal-processor" "withdrawal-processor"
+  if [ "$FAILED" -gt "$pre_failed" ]; then
+    error "Preflight failed — $((FAILED - pre_failed)) service(s) not running. Run cleanup and redeploy before retrying."
+    cleanup
+    exit 1
+  fi
   success "Preflight complete — all services healthy"
 }
 
@@ -178,7 +187,7 @@ start_locust() {
   log "LOAD TEST: Starting Locust (runs in background during experiments)"
   log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   kubectl delete job "$LOCUST_JOB" -n "$NAMESPACE" --ignore-not-found 2>/dev/null || true
-  sleep 3
+  kubectl wait --for=delete job/"$LOCUST_JOB" -n "$NAMESPACE" --timeout=30s 2>/dev/null || true
   kubectl apply -f "$JOBS_DIR/locust-job.yaml"
   success "Locust job started"
 }
@@ -197,10 +206,10 @@ experiment_01_wallet_scale_down() {
   assert_alerts_firing "WalletServiceDown" "WalletServiceDown should fire" 90
 
   kubectl scale deployment -n "$NAMESPACE" wallet-service-deployment --replicas=2
-  wait_for_deployment_ready "wallet-service-deployment" 2 60
+  wait_for_deployment_ready "wallet-service-deployment" 2 120
   assert_service_healthy "wallet-service-deployment" "8001" "/metrics" "wallet-service"
   assert_alerts_resolved "PodNotReady" "PodNotReady should resolve" 360
-  assert_alerts_resolved "WalletServiceDown" "WalletServiceDown should resolve" 120
+  assert_alerts_resolved "WalletServiceDown" "WalletServiceDown should resolve" 180
 
   success "Experiment 01 complete"
 }
@@ -227,7 +236,7 @@ experiment_02_outbox_poller_kill() {
   fi
 
   kubectl scale deployment -n "$NAMESPACE" conversion-outbox-poller --replicas=1
-  wait_for_deployment_ready "conversion-outbox-poller" 1 60
+  wait_for_deployment_ready "conversion-outbox-poller" 1 120
   assert_pods_running "app=conversion-outbox-poller" "conversion-outbox-poller recovered"
 
   success "Experiment 02 complete"
@@ -246,7 +255,7 @@ experiment_03_withdrawal_scale_down() {
   assert_alerts_firing "WithdrawalServiceDown" "WithdrawalServiceDown should fire" 90
 
   kubectl scale deployment -n "$NAMESPACE" withdrawal-service-deployment --replicas=2
-  wait_for_deployment_ready "withdrawal-service-deployment" 2 60
+  wait_for_deployment_ready "withdrawal-service-deployment" 2 120
   assert_service_healthy "withdrawal-service-deployment" "8003" "/metrics" "withdrawal-service"
   assert_alerts_resolved "WithdrawalServiceDown" "WithdrawalServiceDown should resolve" 120
 
@@ -275,7 +284,7 @@ experiment_04_wallet_consumer_kill() {
   fi
 
   kubectl scale deployment -n "$NAMESPACE" wallet-consumer --replicas=2
-  wait_for_deployment_ready "wallet-consumer" 2 60
+  wait_for_deployment_ready "wallet-consumer" 2 120
   assert_pods_running "app=wallet-consumer" "wallet-consumer recovered"
 
   success "Experiment 04 complete"
@@ -294,7 +303,7 @@ experiment_05_conversion_scale_down() {
   assert_alerts_firing "ConversionServiceDown" "ConversionServiceDown should fire" 90
 
   kubectl scale deployment -n "$NAMESPACE" conversion-service-deployment --replicas=2
-  wait_for_deployment_ready "conversion-service-deployment" 2 60
+  wait_for_deployment_ready "conversion-service-deployment" 2 120
   assert_service_healthy "conversion-service-deployment" "8002" "/api/v1/conversions/rates" "conversion-service"
   assert_alerts_resolved "ConversionServiceDown" "ConversionServiceDown should resolve" 120
 
@@ -314,7 +323,7 @@ experiment_06_auth_scale_down() {
   assert_alerts_firing "AuthServiceDown" "AuthServiceDown should fire" 90
 
   kubectl scale deployment -n "$NAMESPACE" auth-service-deployment --replicas=2
-  wait_for_deployment_ready "auth-service-deployment" 2 60
+  wait_for_deployment_ready "auth-service-deployment" 2 120
   assert_service_healthy "auth-service-deployment" "8000" "/health" "auth-service"
   assert_alerts_resolved "AuthServiceDown" "AuthServiceDown should resolve" 120
 

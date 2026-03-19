@@ -19,17 +19,19 @@ spec:
       topologySpreadConstraints:
         - maxSkew: 1
           topologyKey: topology.kubernetes.io/zone
-          whenUnsatisfiable: DoNotSchedule
+          whenUnsatisfiable: ScheduleAnyway
           labelSelector:
             matchLabels:
               app: wallet-consumer
       affinity:
         podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-          - labelSelector:
-              matchLabels:
-                app: wallet-consumer
-            topologyKey: kubernetes.io/hostname
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: wallet-consumer
+              topologyKey: kubernetes.io/hostname
       containers:
       - name: wallet-consumer
         image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/wallet-service:1.2.1
