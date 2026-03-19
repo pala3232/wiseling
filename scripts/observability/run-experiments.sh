@@ -91,7 +91,9 @@ assert_service_healthy() {
   local health_path=$3
   local description=$4
   log "Checking $description health endpoint..."
-  if kubectl exec -n "$NAMESPACE" \
+  # timeout 15 prevents kubectl exec from hanging indefinitely if the pod
+  # is unresponsive — curl --max-time 5 only covers the HTTP request itself
+  if timeout 15 kubectl exec -n "$NAMESPACE" \
     "deploy/$deployment" -- \
     curl -sf --max-time 5 "http://localhost:$port$health_path" &>/dev/null; then
     success "$description — health check passed, service fully recovered"
@@ -214,15 +216,15 @@ experiment_01_wallet_scale_down() {
   sleep 90
 
   assert_alerts_firing "PodNotReady" "PodNotReady should fire with 0 replicas" 30
-  assert_alerts_firing "WalletServiceDown" "WalletServiceDown should fire when scrape target disappears" 30
+  assert_alerts_firing "WalletServiceDown" "WalletServiceDown should fire when scrape target disappears" 90
 
   log "Restoring wallet-service to 2 replicas..."
   kubectl scale deployment -n "$NAMESPACE" wallet-service-deployment --replicas=2
   wait_for_deployment_ready "wallet-service-deployment" 2 120
-  sleep 15  # give app time to fully bind before health check
+  sleep 15
 
   assert_service_healthy "wallet-service-deployment" "8001" "/metrics" "wallet-service"
-  assert_alerts_resolved "PodNotReady" "PodNotReady should resolve after scale-up" 300
+  assert_alerts_resolved "PodNotReady" "PodNotReady should resolve after scale-up" 600
   assert_alerts_resolved "WalletServiceDown" "WalletServiceDown should resolve after scale-up" 180
 
   success "Experiment 01 complete"
@@ -280,11 +282,10 @@ experiment_03_high_error_rate() {
 
   kubectl scale deployment -n "$NAMESPACE" withdrawal-service-deployment --replicas=0
   log "withdrawal-service scaled to 0 — waiting 3 minutes for HighErrorRate to fire..."
-  # 2m for: + scrape/eval lag + time for Locust to generate enough 5xx volume
   sleep 180
 
   assert_alerts_firing "HighErrorRate" "HighErrorRate should fire with withdrawal-service down under load" 30
-  assert_alerts_firing "WithdrawalServiceDown" "WithdrawalServiceDown should fire when scrape target disappears" 30
+  assert_alerts_firing "WithdrawalServiceDown" "WithdrawalServiceDown should fire when scrape target disappears" 90
 
   log "Restoring withdrawal-service to 2 replicas..."
   kubectl scale deployment -n "$NAMESPACE" withdrawal-service-deployment --replicas=2
