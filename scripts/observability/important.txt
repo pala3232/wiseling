@@ -1,0 +1,2 @@
+      # in values-alert.yaml, set slack_api_url to your actual Slack webhook URL in production,
+      # message format and channels can be customized as needed. also, rename to values.yaml.

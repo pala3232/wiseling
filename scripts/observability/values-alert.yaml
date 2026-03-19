@@ -2,7 +2,7 @@ alertmanager:
   config:
     global:
       resolve_timeout: 5m
-      slack_api_url: 'your-url'
+      slack_api_url: 'your-webhook-url'
 
     route:
       group_by: ['alertname', 'namespace']
@@ -22,7 +22,9 @@ alertmanager:
     receivers:
       - name: slack-alerts
         slack_configs:
-          - channel: 'your-channel'
+          - channel: '#wiseling-eks-cluster-main'
+            send_resolved: true
+            title: '[{{ .Status | toUpper }}] {{ .GroupLabels.alertname }}'
             text: >-
               {{ range .Alerts }}
               *Alert:* {{ .Annotations.summary }}
@@ -33,7 +35,7 @@ alertmanager:
 
       - name: slack-critical
         slack_configs:
-          - channel: 'your-channel'
+          - channel: '#wiseling-eks-cluster-main'
             send_resolved: true
             title: 'CRITICAL: {{ .GroupLabels.alertname }}'
             text: >-
@@ -76,7 +78,6 @@ prometheus:
           - targets: ['withdrawal-service.wiseling.svc.cluster.local:8003']
         metrics_path: '/metrics'
 
-# Custom alerts for Wiseling services
 additionalPrometheusRulesMap:
   wiseling-alerts:
     groups:
@@ -166,6 +167,97 @@ additionalPrometheusRulesMap:
             annotations:
               summary: "High CPU usage in {{ $labels.pod }}"
               description: "Container {{ $labels.container }} in pod {{ $labels.pod }} is using more than 80% CPU."
+
+      - name: wiseling.slo
+        rules:
+          - alert: HighErrorRate
+            expr: |
+              sum(rate(http_requests_total{namespace="wiseling", status=~"5.."}[5m]))
+              / sum(rate(http_requests_total{namespace="wiseling"}[5m])) > 0.05
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: "High error rate on Wiseling services"
+              description: "More than 5% of requests are returning 5xx errors."
+
+          - alert: HighLatency
+            expr: |
+              histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{namespace="wiseling"}[5m])) by (le, job)) > 2
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High latency on {{ $labels.job }}"
+              description: "95th percentile latency is above 2 seconds on {{ $labels.job }}."
+
+          - alert: LowRequestRate
+            expr: |
+              sum(rate(http_requests_total{namespace="wiseling"}[5m])) < 0.1
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Unusually low request rate"
+              description: "Request rate has dropped below 0.1 req/s — services may be unreachable."
+
+      - name: wiseling.security
+        rules:
+          - alert: UnauthorizedRequests
+            expr: sum(rate(http_requests_total{namespace="wiseling", status="401"}[5m])) > 10
+            for: 2m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High rate of unauthorized requests"
+              description: "More than 10 401s/sec — possible brute force or token abuse."
+
+          - alert: ForbiddenRequestSpike
+            expr: sum(rate(http_requests_total{namespace="wiseling", status="403"}[5m])) > 5
+            for: 2m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Spike in forbidden requests"
+              description: "Possible unauthorized access attempts on Wiseling."
+
+      - name: wiseling.nodes
+        rules:
+          - alert: NodeHighCPU
+            expr: 100 - (avg by(node) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High CPU on node {{ $labels.node }}"
+              description: "Node {{ $labels.node }} CPU usage is above 80% for 5 minutes."
+
+          - alert: NodeHighMemory
+            expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High memory on node {{ $labels.instance }}"
+              description: "Node {{ $labels.instance }} memory usage is above 85%."
+
+          - alert: NodeDiskPressure
+            expr: (1 - (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"})) * 100 > 80
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Disk pressure on node {{ $labels.instance }}"
+              description: "Node {{ $labels.instance }} disk usage is above 80% on /."
+
+          - alert: NodeNotReady
+            expr: kube_node_status_condition{condition="Ready", status="true"} == 0
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Node {{ $labels.node }} is not ready"
+              description: "Node {{ $labels.node }} has been in NotReady state for more than 2 minutes."
 
 grafana:
   enabled: true

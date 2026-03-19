@@ -273,7 +273,9 @@ jobs:
             for layer in "${DR_LAYERS[@]}"; do
               destroy_dr_layer "$layer"
             done
-            destroy_global_layer
+            # 05-global is NOT destroyed automatically — it owns both ACM certs
+            # and Route53. Only destroy manually after main cluster is also destroyed.
+            echo "Skipping 05-global — destroy manually after main cluster is torn down."
           fi
 
   post-cleanup:

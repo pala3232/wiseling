@@ -41,10 +41,10 @@ resource "aws_route53_zone" "main" {
 resource "aws_route53_health_check" "primary" {
   provider          = aws.global
   fqdn              = var.primary_alb_dns
-  # port              = 80
-  # type              = "HTTP"
-  port = 443        # SWITCH TO THIS PORT AFTER YOU DEPLOYED THE ACM CERT AND APPLIED PORT 80.
-  type = "HTTPS"    # SWITCH TO THIS PORT AFTER YOU DEPLOYED THE ACM CERT AND APPLIED PORT 80.
+  port              = 80
+  type              = "HTTP"
+  # port = 443        # SWITCH TO THIS PORT AFTER YOU DEPLOYED THE ACM CERT AND APPLIED PORT 80.
+  # type = "HTTPS"    # SWITCH TO THIS PORT AFTER YOU DEPLOYED THE ACM CERT AND APPLIED PORT 80.
   resource_path     = "/api/v1/auth/health"
   failure_threshold = 2
   request_interval  = 10
@@ -59,10 +59,10 @@ resource "aws_route53_health_check" "primary" {
 resource "aws_route53_health_check" "dr" {
   provider          = aws.global
   fqdn              = var.dr_alb_dns
-  # port              = 80     SWITCH TO THIS PORT AFTER YOU DEPLOYED THE ACM CERT AND APPLIED PORT 80.
-  # type              = "HTTP" SWITCH TO THIS PORT AFTER YOU DEPLOYED THE ACM CERT AND APPLIED PORT 80.
-  port = 443        #
-  type = "HTTPS"    #
+  port              = 80     
+  type              = "HTTP" 
+  # port = 443        # SWITCH TO THIS PORT AFTER YOU DEPLOYED THE ACM CERT AND APPLIED PORT 80.
+  # type = "HTTPS"    # SWITCH TO THIS PORT AFTER YOU DEPLOYED THE ACM CERT AND APPLIED PORT 80.
   resource_path     = "/api/v1/auth/health"
   failure_threshold = 3
   request_interval  = 30
@@ -116,32 +116,25 @@ resource "aws_route53_record" "dr" {
   }
 }
 
-# ── ACM Certificates ──────────────────────────────────────────────────────────
-
+# ── ACM Certificate for Primary ──
 resource "aws_acm_certificate" "primary" {
   provider          = aws.primary
   domain_name       = var.domain_name
   validation_method = "DNS"
   tags = { Project = var.app_name }
-
-  lifecycle {
-    create_before_destroy = true
-  }
+  lifecycle { create_before_destroy = true }
 }
 
+# ── ACM Certificate for DR ──
 resource "aws_acm_certificate" "dr" {
   provider          = aws.dr
   domain_name       = var.domain_name
   validation_method = "DNS"
   tags = { Project = var.app_name }
-
-  lifecycle {
-    create_before_destroy = true
-  }
+  lifecycle { create_before_destroy = true }
 }
 
-# ── ACM DNS Validation Records ────────────────────────────────────────────────
-
+# ── DNS Validation (same CNAME for both certs) ──
 resource "aws_route53_record" "cert_validation" {
   provider = aws.global
   for_each = {
@@ -151,11 +144,11 @@ resource "aws_route53_record" "cert_validation" {
       record = dvo.resource_record_value
     }
   }
-  zone_id         = aws_route53_zone.main.zone_id
-  name            = each.value.name
-  type            = each.value.type
-  records         = [each.value.record]
-  ttl             = 60
+  zone_id = aws_route53_zone.main.zone_id
+  name    = each.value.name
+  type    = each.value.type
+  records = [each.value.record]
+  ttl     = 60
 }
 
 resource "aws_acm_certificate_validation" "primary" {

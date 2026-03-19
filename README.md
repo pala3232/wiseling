@@ -226,18 +226,19 @@ Lists transfers received by the current user.
 
 ### Deploy - DR Region
 
-1. Run **Deploy Terraform Infrastructure (DR - Singapore)** workflow for layers `01-network-sgp` through `03-iam-sgp`
-2. Run **Deploy Cluster DR** workflow
-3. Run **Deploy Terraform Infrastructure (DR - Singapore)** workflow with layer `05-global` — outputs the Route 53 nameservers and both ACM certificate ARNs
-4. Paste the nameservers into your domain provider and the ACM ARN annotations into both ingress YAMLs, then re-run **Deploy Cluster** and **Deploy Cluster DR**
-5. In `terraform/layers-dr/05-global/main.tf` switch both health checks from `port 80 / HTTP` to `port 443 / HTTPS`, then re-run **Deploy Terraform Infrastructure (DR - Singapore)** with layer `05-global` — this updates the Route 53 health checks to validate over HTTPS using the provisioned ACM certificate, completing the failover DNS setup
+1. Run **Deploy Terraform Infrastructure (DR - Singapore)** workflow for layers `01-network-sgp`, `02-data-sgp`, `03-iam-sgp`, and `04-eks-sgp` (all layers except `05-global`).
+2. Run **Deploy Cluster DR** workflow.
+3. **Manually trigger** the **Deploy Terraform Infrastructure (DR - Singapore)** workflow for layer `05-global` — this outputs the Route 53 nameservers and both ACM certificate ARNs.
+4. Paste the nameservers into your domain provider and the ACM ARN annotations into both ingress YAMLs, then re-run **Deploy Cluster** and **Deploy Cluster DR** or manually reapply both ingress.yaml.
+5. In `terraform/layers-dr/05-global/main.tf`, switch both health checks from `port 80 / HTTP` to `port 443 / HTTPS`, then **manually re-trigger** the workflow for layer `05-global` — this updates the Route 53 health checks to validate over HTTPS using the provisioned ACM certificate, completing the failover DNS setup.
 
 ### Destroy Infrastructure
 
 Always destroy DR before primary — the DR RDS read replica depends on the primary RDS instance, so destroying primary first will fail.
 
-1. Run **Destroy DR Terraform Infrastructure** workflow (requires typing `DESTROY` to confirm)
+1. Run **Destroy DR Terraform Infrastructure** workflow (requires typing `DESTROY` to confirm). Won't delete 05-global module. This will be deleted on the last step
 2. Run **Destroy Terraform Infrastructure** workflow (requires typing `DESTROY` to confirm)
+3. Run **Destroy DR Terraform Infrastructure** workflow (requires typing `DESTROY` to confirm). Targeting ONLY 05-global module.
 
 Both workflows support targeting a specific layer via the layer input, or leave blank to destroy all in reverse order.
 
