@@ -1,8 +1,12 @@
+      # set slack_api_url to your actual Slack webhook URL in production,
+      # message format and channels can be customized as needed.
+      # set slack_api_url to your actual Slack webhook URL in production,
+      # message format and channels can be customized as needed.
 alertmanager:
   config:
     global:
       resolve_timeout: 5m
-      slack_api_url: 'your-webhook-url'
+      slack_api_url: 'your-webhook-url' # Replace with your actual Slack webhook URL
 
     route:
       group_by: ['alertname', 'namespace']
@@ -172,8 +176,8 @@ additionalPrometheusRulesMap:
         rules:
           - alert: HighErrorRate
             expr: |
-              sum(rate(http_requests_total{namespace="wiseling", status=~"5.."}[5m]))
-              / sum(rate(http_requests_total{namespace="wiseling"}[5m])) > 0.05
+              sum(rate(http_requests_total{job=~"wiseling/.*", status="5xx"}[5m]))
+              / sum(rate(http_requests_total{job=~"wiseling/.*"}[5m])) > 0.05
             for: 2m
             labels:
               severity: critical
@@ -183,7 +187,7 @@ additionalPrometheusRulesMap:
 
           - alert: HighLatency
             expr: |
-              histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{namespace="wiseling"}[5m])) by (le, job)) > 2
+              histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=~"wiseling/.*"}[5m])) by (le, job)) > 2
             for: 5m
             labels:
               severity: warning
@@ -193,7 +197,7 @@ additionalPrometheusRulesMap:
 
           - alert: LowRequestRate
             expr: |
-              sum(rate(http_requests_total{namespace="wiseling"}[5m])) < 0.1
+              sum(rate(http_requests_total{job=~"wiseling/.*"}[5m])) < 0.1
             for: 10m
             labels:
               severity: warning
@@ -204,16 +208,16 @@ additionalPrometheusRulesMap:
       - name: wiseling.security
         rules:
           - alert: UnauthorizedRequests
-            expr: sum(rate(http_requests_total{namespace="wiseling", status="401"}[5m])) > 10
+            expr: sum(rate(http_requests_total{job=~"wiseling/.*", status="4xx"}[5m])) > 10
             for: 2m
             labels:
               severity: warning
             annotations:
               summary: "High rate of unauthorized requests"
-              description: "More than 10 401s/sec — possible brute force or token abuse."
+              description: "More than 10 4xx/sec — possible brute force or token abuse."
 
           - alert: ForbiddenRequestSpike
-            expr: sum(rate(http_requests_total{namespace="wiseling", status="403"}[5m])) > 5
+            expr: sum(rate(http_requests_total{job=~"wiseling/.*", status="4xx"}[5m])) > 5
             for: 2m
             labels:
               severity: warning
