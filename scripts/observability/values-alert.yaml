@@ -7,7 +7,7 @@ alertmanager:
       slack_api_url: 'your-webhook-url'  # Replace with your actual Slack webhook URL
 
     route:
-      group_by: ['namespace']
+      group_by: ['alertname', 'namespace', 'severity']
       group_wait: 10s
       group_interval: 1m
       repeat_interval: 12h
