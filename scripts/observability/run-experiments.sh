@@ -16,6 +16,7 @@ trap 'error_handler $LINENO' ERR
 JOBS_DIR="kubernetes-manifests/jobs"
 NAMESPACE="wiseling"
 ALERTMANAGER_URL="http://localhost:9093"
+PROMETHEUS_URL="http://localhost:9090"
 LOCUST_JOB="wiseling-load-test"
 
 PASSED=0
@@ -25,6 +26,7 @@ cleanup() {
   log "Cleaning up locust job..."
   kubectl delete job "$LOCUST_JOB" -n "$NAMESPACE" --ignore-not-found 2>/dev/null || true
   pkill -f "kubectl port-forward.*alertmanager" 2>/dev/null || true
+  pkill -f "kubectl port-forward.*prometheus" 2>/dev/null || true
   log "Restoring all deployments..."
   for deploy in auth-service-deployment wallet-service-deployment conversion-service-deployment withdrawal-service-deployment; do
     kubectl scale deployment -n "$NAMESPACE" "$deploy" --replicas=2 2>/dev/null || true
@@ -162,6 +164,52 @@ setup_alertmanager_portforward() {
   fi
 }
 
+setup_prometheus_portforward() {
+  log "Setting up Prometheus port-forward..."
+  kubectl port-forward -n monitoring \
+    svc/kube-prometheus-stack-prometheus 9090:9090 &>/dev/null &
+  sleep 3
+  if curl -sf "${PROMETHEUS_URL}/api/v1/status/runtimeinfo" &>/dev/null; then
+    success "Prometheus port-forward established"
+  else
+    warn "Could not reach Prometheus"
+  fi
+}
+
+# Query Prometheus directly for PodNotReady — bypasses Alertmanager resolve_timeout.
+# If the expression returns no results, all service pods are ready and the alert will resolve.
+assert_podnot_ready_cleared() {
+  local timeout=${1:-120}
+  local elapsed=0
+  local expr='(kube_pod_status_ready{namespace="wiseling",condition="true"}==0)*on(pod,namespace)group_left()kube_pod_labels{namespace="wiseling",label_app=~"auth-service|wallet-service|conversion-service|withdrawal-service|wallet-consumer|conversion-outbox-poller|withdrawal-processor"}'
+  log "Querying Prometheus: waiting for PodNotReady expression to clear (timeout: ${timeout}s)..."
+  while [ $elapsed -lt $timeout ]; do
+    local result
+    result=$(curl -sf "${PROMETHEUS_URL}/api/v1/query" \
+      --data-urlencode "query=${expr}" 2>/dev/null | \
+      python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+results = d.get('data', {}).get('result', [])
+print(len(results))
+for r in results:
+    print('  NOT-READY:', r.get('metric', {}), file=sys.stderr)
+" 2>/tmp/pnr_debug || echo "-1")
+    if [ "${result}" = "0" ]; then
+      success "PodNotReady: no not-ready service pods in Prometheus after ${elapsed}s"
+      PASSED=$((PASSED + 1))
+      return 0
+    fi
+    if [ "${result}" != "-1" ] && [ $((elapsed % 30)) -eq 0 ] && [ -s /tmp/pnr_debug ]; then
+      warn "Still not-ready: $(cat /tmp/pnr_debug)"
+    fi
+    sleep 10
+    elapsed=$((elapsed + 10))
+  done
+  warn "PodNotReady still active after ${timeout}s — not-ready pods: $(cat /tmp/pnr_debug 2>/dev/null)"
+  FAILED=$((FAILED + 1))
+}
+
 preflight() {
   log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   log "PREFLIGHT: Verifying all services are healthy before experiments"
@@ -207,11 +255,7 @@ experiment_01_wallet_scale_down() {
 
   kubectl scale deployment -n "$NAMESPACE" wallet-service-deployment --replicas=2
   wait_for_deployment_ready "wallet-service-deployment" 2 120
-  # kube-state-metrics → Prometheus eval → Alertmanager resolve_timeout chain takes up to 180s.
-  # Sleep 90s first so we're not polling during the window it cannot yet have resolved.
-  log "Waiting 90s for kube-state-metrics/Prometheus/Alertmanager chain to propagate..."
-  sleep 90
-  assert_alerts_resolved "PodNotReady" "PodNotReady should resolve" 120
+  assert_podnot_ready_cleared 120
   assert_alerts_resolved "WalletServiceDown" "WalletServiceDown should resolve" 60
 
   success "Experiment 01 complete"
@@ -356,6 +400,7 @@ main() {
   success "Chaos Mesh RBAC applied"
 
   setup_alertmanager_portforward
+  setup_prometheus_portforward
   preflight
   start_locust
 
