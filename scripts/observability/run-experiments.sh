@@ -178,6 +178,7 @@ preflight() {
   assert_pods_running "app=withdrawal-service" "withdrawal-service"
   assert_pods_running "app=wallet-consumer" "wallet-consumer"
   assert_pods_running "app=conversion-outbox-poller" "conversion-outbox-poller"
+  assert_pods_running "app=withdrawal-processor" "withdrawal-processor"
 
   success "Preflight complete — all services healthy"
 }
@@ -226,11 +227,11 @@ experiment_02_outbox_network_delay() {
   sleep 180
 
   # Pollers should still be running — network delay must not crash them
-  assert_pods_running "component=outbox-poller" "outbox-pollers still alive under 2s network delay"
+  assert_pods_running "app=conversion-outbox-poller" "outbox-pollers still alive under 2s network delay"
 
   # Validate no unexpected pod restarts (pollers should handle delay gracefully)
   local restarts
-  restarts=$(kubectl get pods -n "$NAMESPACE" -l "component=outbox-poller" --no-headers 2>/dev/null | \
+  restarts=$(kubectl get pods -n "$NAMESPACE" -l "app=conversion-outbox-poller" --no-headers 2>/dev/null | \
     awk '{print $4}' | sort -rn | head -1 || echo "0")
   if [ "${restarts:-0}" -eq 0 ]; then
     success "Outbox pollers — no restarts under network delay (graceful degradation confirmed)"
@@ -413,6 +414,9 @@ main() {
   log "Load test job: $JOBS_DIR/locust-job.yaml"
   echo ""
 
+  log "Applying Chaos Mesh RBAC permissions..."
+  kubectl apply -f kubernetes-manifests/chaos/chaos-mesh-rbac.yaml
+  success "Chaos Mesh RBAC applied"
   setup_alertmanager_portforward
   preflight
 
