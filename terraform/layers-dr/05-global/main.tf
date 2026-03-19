@@ -151,14 +151,16 @@ resource "aws_route53_record" "cert_validation" {
   ttl     = 60
 }
 
-resource "aws_acm_certificate_validation" "primary" {
-  provider                = aws.primary
-  certificate_arn         = aws_acm_certificate.primary.arn
-  validation_record_fqdns = [for r in aws_route53_record.cert_validation : r.fqdn]
-}
+#resource "aws_acm_certificate_validation" "primary" {
+#  provider                = aws.primary
+#  certificate_arn         = aws_acm_certificate.primary.arn
+#  validation_record_fqdns = [for r in aws_route53_record.cert_validation : r.fqdn]
+#}
 
-resource "aws_acm_certificate_validation" "dr" {
-  provider                = aws.dr
-  certificate_arn         = aws_acm_certificate.dr.arn
-  validation_record_fqdns = [for r in aws_route53_record.cert_validation : r.fqdn]
-}
+# resource "aws_acm_certificate_validation" "dr" {
+#  provider                = aws.dr
+#  certificate_arn         = aws_acm_certificate.dr.arn
+#  validation_record_fqdns = [for r in aws_route53_record.cert_validation : r.fqdn]
+#}
+
+# uncomment certs validation on second run of 05-global as documented on README.
