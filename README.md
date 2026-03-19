@@ -218,13 +218,13 @@ Lists transfers received by the current user.
 
 > Before running any `build-push-deploy-*.yml` workflow, update the `ECR_REPO_URL` env var at the top of each file to point to your own ECR registry.
 
-### Deploy - Primary Region
+### Step 1: Deploy - Primary Region 
 
-1. Run **Deploy Terraform Infrastructure** workflow
-2. Run **Deploy Cluster** workflow — bootstraps the cluster, uploads the JWT secret, installs controllers and applies all manifests
-3. Run **Deploy Observability Stack** workflow
+1. Run **Deploy Terraform Infrastructure** workflow.
+2. Run **Deploy Cluster** workflow — bootstraps the cluster, uploads the JWT secret, installs controllers and applies all manifests.
+3. Run **Deploy Observability Stack** workflow.
 
-### Deploy - DR Region
+### Step 2: Deploy - DR Region
 
 1. Run **Deploy Terraform Infrastructure (DR - Singapore)** workflow for layers `01-network-sgp`, `02-data-sgp`, `03-iam-sgp`, and `04-eks-sgp` (all layers except `05-global`).
 2. Run **Deploy Cluster DR** workflow.
