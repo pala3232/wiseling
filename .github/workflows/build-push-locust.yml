@@ -1,0 +1,41 @@
+name: Build and Push Locust
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'services/locust/**'
+  workflow_dispatch:
+
+env:
+  ECR_REPO_URL: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/locust
+  IMAGE_TAG: 1.0.0
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-southeast-2
+
+      - name: Login to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push locust
+        run: |
+          docker build --no-cache \
+            -t ${{ env.ECR_REPO_URL }}:${{ env.IMAGE_TAG }} \
+            ./services/locust
+          docker push \
+            ${{ env.ECR_REPO_URL }}:${{ env.IMAGE_TAG }}

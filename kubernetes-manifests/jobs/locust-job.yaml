@@ -1,0 +1,36 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: wiseling-load-test
+  namespace: wiseling
+  labels:
+    app: locust
+    component: load-test
+spec:
+  ttlSecondsAfterFinished: 300  # clean up 5 min after completion
+  template:
+    metadata:
+      labels:
+        app: locust
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: locust
+          image: YOUR_ECR/wiseling-locust:latest
+          args:
+            - --headless
+            - -u
+            - "50"          # 50 concurrent users
+            - -r
+            - "5"           # spawn 5 users per second
+            - --run-time
+            - "5m"          # run for 5 minutes
+            - --html
+            - /tmp/report.html
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

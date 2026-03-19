@@ -142,7 +142,8 @@ resource "aws_ecr_repository" "services" {
     "wallet-service",
     "conversion-service",
     "withdrawal-service",
-    "frontend"
+    "frontend",
+    "locust"
   ])
 
   name                 = "${var.app_name}/${each.key}"
