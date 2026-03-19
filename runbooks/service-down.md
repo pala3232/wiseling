@@ -42,4 +42,4 @@
 - If `Pending`: check node capacity with `kubectl describe nodes`
 
 ## Escalation
-If the service does not recover within 10 minutes, escalate to the on-call engineer.
+If the service does not recover within 10 minutes, escalate.

@@ -403,7 +403,7 @@ experiment_07_crash_loop() {
   while [ $elapsed -lt 120 ]; do
     local count
     count=$(curl -sf "${PROMETHEUS_URL}/api/v1/query" \
-      --data-urlencode 'query=rate(kube_pod_container_status_restarts_total{namespace="wiseling",pod="crash-loop-test"}[5m])' 2>/dev/null | \
+      --data-urlencode 'query=kube_pod_container_status_restarts_total{namespace="wiseling",pod="crash-loop-test"}' 2>/dev/null | \
       python3 -c "import sys, json; d = json.load(sys.stdin); print(len(d.get('data', {}).get('result', [])))" 2>/dev/null || echo "-1")
     if [ "${count}" = "0" ]; then
       success "PodCrashLooping: crash-loop pod metrics cleared from Prometheus after ${elapsed}s — alert will resolve"

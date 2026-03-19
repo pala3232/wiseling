@@ -54,4 +54,4 @@
   ```
 
 ## Escalation
-If the pod does not stabilise within 15 minutes, escalate to the on-call engineer with the crash logs attached.
+If the pod does not stabilise within 15 minutes, escalate with the crash logs attached.

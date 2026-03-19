@@ -14,6 +14,10 @@ alertmanager:
       receiver: slack-alerts
       routes:
         - match:
+            alertname: Watchdog
+          receiver: 'null'        # Watchdog is consumed silently — absence = alerting is broken
+          repeat_interval: 1m
+        - match:
             severity: critical
           receiver: slack-critical
           continue: true
@@ -28,6 +32,8 @@ alertmanager:
             send_resolved: true
             title: '[{{ .Status | toUpper }}] {{ range .Alerts }}{{ .Labels.alertname }} {{ end }}'
             text: "{{ range .Alerts }}*Alert:* {{ .Annotations.summary }}\n*Namespace:* {{ .Labels.namespace }}\n*Severity:* {{ .Labels.severity }}\n*Description:* {{ .Annotations.description }}\n{{ end }}"
+
+      - name: 'null'
 
       - name: slack-critical
         slack_configs:
@@ -75,23 +81,24 @@ additionalPrometheusRulesMap:
             annotations:
               summary: "Pod {{ $labels.pod }} is crash looping"
               description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} has restarted {{ $value }} times in the last 5 minutes."
+              runbook_url: "https://github.com/wiseling/wiseling-ms/blob/main/runbooks/pod-crash-looping.md"
 
           - alert: PodNotReady
             expr: |
-              kube_pod_status_ready{namespace="wiseling", condition="true"} == 0
-              unless on(pod, namespace) kube_pod_status_phase{namespace="wiseling", phase="Succeeded"}
-              unless on(pod, namespace) kube_pod_status_phase{namespace="wiseling", phase="Failed"}
-              unless on(pod, namespace) (kube_pod_owner{namespace="wiseling", owner_kind="Job"})
+              (kube_pod_status_ready{namespace="wiseling", condition="true"} == 0)
+              * on(pod, namespace) group_left()
+                kube_pod_labels{namespace="wiseling", label_app=~"auth-service|wallet-service|conversion-service|withdrawal-service|wallet-consumer|conversion-outbox-poller|withdrawal-processor"}
             for: 1m
             labels:
               severity: critical
             annotations:
               summary: "Pod {{ $labels.pod }} is not ready"
               description: "Pod {{ $labels.pod }} in namespace wiseling has been not ready for more than 1 minute."
+              runbook_url: "https://github.com/wiseling/wiseling-ms/blob/main/runbooks/pod-not-ready.md"
 
           - alert: DeploymentReplicasMismatch
             expr: kube_deployment_spec_replicas{namespace="wiseling"} != kube_deployment_status_available_replicas{namespace="wiseling"}
-            for: 5m
+            for: 10m
             labels:
               severity: warning
             annotations:
@@ -109,6 +116,7 @@ additionalPrometheusRulesMap:
             annotations:
               summary: "Wallet service is down"
               description: "The wallet-service has been unreachable for more than 1 minute."
+              runbook_url: "https://github.com/wiseling/wiseling-ms/blob/main/runbooks/service-down.md"
 
           - alert: AuthServiceDown
             expr: up{job="wiseling/auth-service"} == 0
@@ -119,6 +127,7 @@ additionalPrometheusRulesMap:
             annotations:
               summary: "Auth service is down"
               description: "The auth-service has been unreachable for more than 1 minute."
+              runbook_url: "https://github.com/wiseling/wiseling-ms/blob/main/runbooks/service-down.md"
 
           - alert: WithdrawalServiceDown
             expr: up{job="wiseling/withdrawal-service"} == 0
@@ -129,6 +138,7 @@ additionalPrometheusRulesMap:
             annotations:
               summary: "Withdrawal service is down"
               description: "The withdrawal-service has been unreachable for more than 1 minute."
+              runbook_url: "https://github.com/wiseling/wiseling-ms/blob/main/runbooks/service-down.md"
 
           - alert: ConversionServiceDown
             expr: up{job="wiseling/conversion-service"} == 0
@@ -139,6 +149,7 @@ additionalPrometheusRulesMap:
             annotations:
               summary: "Conversion service is down"
               description: "The conversion-service has been unreachable for more than 1 minute."
+              runbook_url: "https://github.com/wiseling/wiseling-ms/blob/main/runbooks/service-down.md"
 
       - name: wiseling.resources
         rules:
@@ -253,14 +264,13 @@ additionalPrometheusRulesMap:
 
 defaultRules:
   disabled:
-    Watchdog: true
     InfoInhibitor: true
   params:
     cpuThrottlingPercent: 80
 
 grafana:
   enabled: true
-  adminPassword: pala3105
+  adminPassword: your-grafana-password  # Replace with your actual Grafana password
   grafana.ini:
     server:
       root_url: "%(protocol)s://%(domain)s/grafana"
@@ -270,3 +280,7 @@ nodeExporter:
 
 kubeStateMetrics:
   enabled: true
+
+kube-state-metrics:
+  metricLabelsAllowlist:
+    - pods=[*]
