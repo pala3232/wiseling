@@ -164,3 +164,4 @@ resource "aws_route53_record" "cert_validation" {
 #}
 
 # uncomment certs validation on second run of 05-global as documented on README.
+# also uncomment outputs on second run.
