@@ -29,6 +29,6 @@ spec:
       app: conversion-service
   target: Response
   port: 8002
-  path: "/api/v1/conversions*"
+  path: "*"
   delay: "3000ms"
   duration: "3m"

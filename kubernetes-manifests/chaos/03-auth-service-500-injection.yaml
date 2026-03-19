@@ -28,7 +28,6 @@ spec:
       app: auth-service
   target: Response
   port: 8000
-  path: "/api/v1/auth/*"
-  abort: false
-  statusCode: 500
+  path: "*"
+  code: 500
   duration: "3m"
