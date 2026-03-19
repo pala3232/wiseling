@@ -56,5 +56,3 @@ helm upgrade --install chaos-mesh chaos-mesh/chaos-mesh \
   --timeout 5m
 
 log "Observability stack and Chaos Mesh installation complete!"
-
-log "Observability stack installation complete!"
