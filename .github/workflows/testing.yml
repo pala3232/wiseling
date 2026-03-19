@@ -36,11 +36,7 @@ jobs:
 
       - name: Make scripts executable
         run: |
-          chmod +x scripts/observability/install-stack.sh
           chmod +x scripts/observability/run-experiments.sh
-
-      - name: Update observability stack (applies latest alert rules and Alertmanager config)
-        run: ./scripts/observability/install-stack.sh
 
       - name: Run Tests
         run: ./scripts/observability/run-experiments.sh
