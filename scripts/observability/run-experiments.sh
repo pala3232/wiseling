@@ -207,8 +207,12 @@ experiment_01_wallet_scale_down() {
 
   kubectl scale deployment -n "$NAMESPACE" wallet-service-deployment --replicas=2
   wait_for_deployment_ready "wallet-service-deployment" 2 120
-  assert_alerts_resolved "PodNotReady" "PodNotReady should resolve" 180
-  assert_alerts_resolved "WalletServiceDown" "WalletServiceDown should resolve" 120
+  # kube-state-metrics → Prometheus eval → Alertmanager resolve_timeout chain takes up to 180s.
+  # Sleep 90s first so we're not polling during the window it cannot yet have resolved.
+  log "Waiting 90s for kube-state-metrics/Prometheus/Alertmanager chain to propagate..."
+  sleep 90
+  assert_alerts_resolved "PodNotReady" "PodNotReady should resolve" 120
+  assert_alerts_resolved "WalletServiceDown" "WalletServiceDown should resolve" 60
 
   success "Experiment 01 complete"
 }
