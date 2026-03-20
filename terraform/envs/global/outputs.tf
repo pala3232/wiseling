@@ -8,11 +8,11 @@ output "name_servers" {
 }
 
 output "primary_cert_arn" {
-  value       = aws_acm_certificate_validation.primary.certificate_arn
+  value       = aws_acm_certificate.primary.arn
   description = "Use in the primary ingress annotation: alb.ingress.kubernetes.io/certificate-arn"
 }
 
 output "dr_cert_arn" {
-  value       = aws_acm_certificate_validation.dr.certificate_arn
+  value       = aws_acm_certificate.dr.arn
   description = "Use in the DR ingress annotation: alb.ingress.kubernetes.io/certificate-arn"
 }

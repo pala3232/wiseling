@@ -31,11 +31,13 @@ jobs:
   pre-cleanup-primary:
     needs: confirm
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region:            ap-southeast-2
 
       - name: Delete ingresses and wait for ALB removal
@@ -102,11 +104,13 @@ jobs:
   pre-cleanup-dr:
     needs: confirm
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region:            ap-southeast-1
 
       - name: Delete ingresses and wait for ALB removal
@@ -191,12 +195,14 @@ jobs:
   destroy-primary:
     needs: pre-cleanup-primary
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region:            ap-southeast-2
       - uses: hashicorp/setup-terraform@v3
       - name: Destroy primary layers in reverse order
@@ -219,12 +225,14 @@ jobs:
   destroy-dr:
     needs: pre-cleanup-dr
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region:            ap-southeast-1
       - uses: hashicorp/setup-terraform@v3
       - name: Destroy DR layers in reverse order
@@ -247,12 +255,14 @@ jobs:
   destroy-global:
     needs: [destroy-primary, destroy-dr]
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region:            us-east-1
       - uses: hashicorp/setup-terraform@v3
       - name: Destroy global (Route53 + ACM)

@@ -46,6 +46,13 @@ kubectl apply -f kubernetes-manifests/irsa/namespace.yaml
 kubectl apply -f kubernetes-manifests/irsa/sa.yaml
 
 
+log "Installing metrics-server (required for HPA)..."
+helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
+helm upgrade --install metrics-server metrics-server/metrics-server \
+  -n kube-system \
+  --set args[0]="--kubelet-preferred-address-types=InternalIP"
+
+
 log "Installing AWS Load Balancer Controller..."
 helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-controller \
   -n kube-system \
@@ -77,7 +84,8 @@ helm upgrade --install karpenter oci://public.ecr.aws/karpenter/karpenter \
   --set settings.clusterName="$CLUSTER_NAME" \
   --set settings.interruptionQueue=wiseling-karpenter \
   --set serviceAccount.create=false \
-  --set serviceAccount.name=karpenter-sa
+  --set serviceAccount.name=karpenter-sa \
+  --set replicas=1
 
 
 log "Waiting for EC2NodeClass CRD to be available..."
@@ -127,5 +135,7 @@ kubectl apply -f kubernetes-manifests/ingress.yaml
 kubectl apply -f kubernetes-manifests/deployments/blue-deployments/frontend-service/
 kubectl apply -f kubernetes-manifests/services/pod-services.yaml
 kubectl apply -f kubernetes-manifests/network-policies/
+kubectl apply -f kubernetes-manifests/deployments/blue-deployments/hpa.yaml
+kubectl apply -f kubernetes-manifests/pdbs/pdb.yaml
 
 log "Done!"

@@ -10,7 +10,7 @@ terraform {
   }
 }
 
-# Route 53 is global — us-east-1 is conventional
+# Route 53 is global
 provider "aws" {
   alias  = "global"
   region = "us-east-1"
@@ -143,16 +143,18 @@ resource "aws_route53_record" "cert_validation" {
   ttl     = 60
 }
 
-# Certificate validation waiters — only block apply once NS is delegated
-# On first apply (HTTP mode), these will timeout unless NS is already in Cloudflare.
-# Run with health_check_protocol=HTTP first, delegate NS, then re-apply with HTTPS.
+# Certificate validation waiters — skipped on first apply (HTTP) so Terraform doesn't
+# hang waiting for DNS that isn't delegated yet. On second apply (HTTPS), DNS is live
+# and these complete in seconds.
 resource "aws_acm_certificate_validation" "primary" {
+  count                   = var.health_check_protocol == "HTTPS" ? 1 : 0
   provider                = aws.primary
   certificate_arn         = aws_acm_certificate.primary.arn
   validation_record_fqdns = [for r in aws_route53_record.cert_validation : r.fqdn]
 }
 
 resource "aws_acm_certificate_validation" "dr" {
+  count                   = var.health_check_protocol == "HTTPS" ? 1 : 0
   provider                = aws.dr
   certificate_arn         = aws_acm_certificate.dr.arn
   validation_record_fqdns = [for r in aws_route53_record.cert_validation : r.fqdn]

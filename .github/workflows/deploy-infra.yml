@@ -44,13 +44,15 @@ jobs:
   network-primary:
     if: github.event.inputs.target == '' || github.event.inputs.target == 'primary/01-network'
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region:            ap-southeast-2
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region:     ap-southeast-2
       - uses: hashicorp/setup-terraform@v3
       - name: Apply primary/01-network
         run: |
@@ -61,13 +63,15 @@ jobs:
   network-dr:
     if: github.event.inputs.target == '' || github.event.inputs.target == 'dr/01-network'
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region:            ap-southeast-1
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region:     ap-southeast-1
       - uses: hashicorp/setup-terraform@v3
       - name: Apply dr/01-network
         run: |
@@ -89,13 +93,15 @@ jobs:
       (needs.network-primary.result == 'success' || needs.network-primary.result == 'skipped') &&
       (github.event.inputs.target == '' || github.event.inputs.target == 'primary/02-data')
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region:            ap-southeast-2
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region:     ap-southeast-2
       - uses: hashicorp/setup-terraform@v3
       - name: Apply primary/02-data
         run: |
@@ -110,13 +116,15 @@ jobs:
       (needs.network-primary.result == 'success' || needs.network-primary.result == 'skipped') &&
       (github.event.inputs.target == '' || github.event.inputs.target == 'primary/03-eks')
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region:            ap-southeast-2
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region:     ap-southeast-2
       - uses: hashicorp/setup-terraform@v3
       - name: Apply primary/03-eks
         run: |
@@ -131,13 +139,15 @@ jobs:
       (needs.network-dr.result == 'success' || needs.network-dr.result == 'skipped') &&
       (github.event.inputs.target == '' || github.event.inputs.target == 'dr/03-eks')
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region:            ap-southeast-1
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region:     ap-southeast-1
       - uses: hashicorp/setup-terraform@v3
       - name: Apply dr/03-eks
         run: |
@@ -159,13 +169,15 @@ jobs:
       (needs.eks-primary.result == 'success' || needs.eks-primary.result == 'skipped') &&
       (github.event.inputs.target == '' || github.event.inputs.target == 'primary/04-iam')
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region:            ap-southeast-2
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region:     ap-southeast-2
       - uses: hashicorp/setup-terraform@v3
       - name: Apply primary/04-iam
         run: |
@@ -181,13 +193,15 @@ jobs:
       (needs.network-dr.result == 'success' || needs.network-dr.result == 'skipped') &&
       (github.event.inputs.target == '' || github.event.inputs.target == 'dr/02-data')
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region:            ap-southeast-1
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region:     ap-southeast-1
       - uses: hashicorp/setup-terraform@v3
       - name: Apply dr/02-data
         run: |
@@ -202,13 +216,15 @@ jobs:
       (needs.eks-dr.result == 'success' || needs.eks-dr.result == 'skipped') &&
       (github.event.inputs.target == '' || github.event.inputs.target == 'dr/04-iam')
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region:            ap-southeast-1
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region:     ap-southeast-1
       - uses: hashicorp/setup-terraform@v3
       - name: Apply dr/04-iam
         run: |
@@ -226,13 +242,15 @@ jobs:
   global:
     if: github.event.inputs.target == 'global'
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region:            us-east-1
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region:     us-east-1
       - uses: hashicorp/setup-terraform@v3
 
       - name: Fetch ALB DNS names from both clusters
