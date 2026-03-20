@@ -161,8 +161,10 @@ resource "aws_acm_certificate_validation" "dr" {
 }
 
 # ── Alerting ──────────────────────────────────────────────────────────────────
-# Route53 switches traffic automatically when health checks fail.
-# This alarm notifies you so you can decide whether to promote the RDS replica.
+# Three alarm channels:
+#   1. us-east-1  — Route53 health check failure (regional failover)
+#   2. ap-southeast-2 — SQS DLQ depth (failed event processing)
+#   3. ap-southeast-1 — RDS replication lag (data loss risk on failover)
 # CloudWatch Route53 health check metrics are only available in us-east-1.
 
 resource "aws_sns_topic" "failover_alerts" {
@@ -177,6 +179,89 @@ resource "aws_sns_topic_subscription" "failover_email" {
   protocol  = "email"
   endpoint  = var.alert_email
 }
+
+# ── Channel 2: SQS DLQ alarms (primary region) ────────────────────────────────
+
+resource "aws_sns_topic" "ops_alerts_primary" {
+  provider = aws.primary
+  name     = "wiseling-ops-alerts-primary"
+  tags     = { Project = var.app_name }
+}
+
+resource "aws_sns_topic_subscription" "ops_alerts_primary_email" {
+  provider  = aws.primary
+  topic_arn = aws_sns_topic.ops_alerts_primary.arn
+  protocol  = "email"
+  endpoint  = var.alert_email
+}
+
+resource "aws_cloudwatch_metric_alarm" "conversions_dlq" {
+  provider            = aws.primary
+  alarm_name          = "wiseling-conversions-dlq-not-empty"
+  alarm_description   = "Messages in wiseling-conversions-dlq — conversion events failed processing. Check wallet-consumer logs."
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  metric_name         = "ApproximateNumberOfMessagesVisible"
+  namespace           = "AWS/SQS"
+  period              = 60
+  statistic           = "Sum"
+  threshold           = 0
+  dimensions          = { QueueName = "wiseling-conversions-dlq" }
+  alarm_actions       = [aws_sns_topic.ops_alerts_primary.arn]
+  ok_actions          = [aws_sns_topic.ops_alerts_primary.arn]
+  tags                = { Project = var.app_name }
+}
+
+resource "aws_cloudwatch_metric_alarm" "withdrawals_dlq" {
+  provider            = aws.primary
+  alarm_name          = "wiseling-withdrawals-dlq-not-empty"
+  alarm_description   = "Messages in wiseling-withdrawals-dlq — withdrawal/transfer events failed processing. Check wallet-consumer logs."
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  metric_name         = "ApproximateNumberOfMessagesVisible"
+  namespace           = "AWS/SQS"
+  period              = 60
+  statistic           = "Sum"
+  threshold           = 0
+  dimensions          = { QueueName = "wiseling-withdrawals-dlq" }
+  alarm_actions       = [aws_sns_topic.ops_alerts_primary.arn]
+  ok_actions          = [aws_sns_topic.ops_alerts_primary.arn]
+  tags                = { Project = var.app_name }
+}
+
+# ── Channel 3: RDS replication lag (DR region) ────────────────────────────────
+
+resource "aws_sns_topic" "ops_alerts_dr" {
+  provider = aws.dr
+  name     = "wiseling-ops-alerts-dr"
+  tags     = { Project = var.app_name }
+}
+
+resource "aws_sns_topic_subscription" "ops_alerts_dr_email" {
+  provider  = aws.dr
+  topic_arn = aws_sns_topic.ops_alerts_dr.arn
+  protocol  = "email"
+  endpoint  = var.alert_email
+}
+
+resource "aws_cloudwatch_metric_alarm" "rds_replica_lag" {
+  provider            = aws.dr
+  alarm_name          = "wiseling-rds-replica-lag-high"
+  alarm_description   = "RDS replica lag above 30s — failover risks data loss. Investigate primary RDS and network connectivity between regions."
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "ReplicaLag"
+  namespace           = "AWS/RDS"
+  period              = 60
+  statistic           = "Average"
+  threshold           = 30
+  dimensions          = { DBInstanceIdentifier = "wiseling-rds-replica-sgp" }
+  alarm_actions       = [aws_sns_topic.ops_alerts_dr.arn]
+  ok_actions          = [aws_sns_topic.ops_alerts_dr.arn]
+  tags                = { Project = var.app_name }
+}
+
+# ── Channel 1: Route53 health check (us-east-1) ───────────────────────────────
 
 resource "aws_cloudwatch_metric_alarm" "primary_unhealthy" {
   provider            = aws.global
