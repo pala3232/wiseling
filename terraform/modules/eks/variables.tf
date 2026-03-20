@@ -27,6 +27,11 @@ variable "admin_iam_arn" {
   default = ""
 }
 
+variable "github_actions_role_arn" {
+  type    = string
+  default = ""
+}
+
 variable "aws_region" {
   type = string
 }

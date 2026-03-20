@@ -43,8 +43,9 @@ module "eks" {
   private_subnet_2_id = data.terraform_remote_state.network.outputs.private_subnet_2_id
   eks_cluster_sg_id   = data.terraform_remote_state.network.outputs.eks_cluster_sg_id
   eks_nodes_sg_id     = data.terraform_remote_state.network.outputs.eks_nodes_sg_id
-  admin_iam_arn       = var.admin_iam_arn
-  aws_region          = "ap-southeast-2"
+  admin_iam_arn           = var.admin_iam_arn
+  github_actions_role_arn = "arn:aws:iam::359707702022:role/wiseling-github-actions"
+  aws_region              = "ap-southeast-2"
 }
 
 # Annotate the aws-node service account with the VPC CNI IRSA role

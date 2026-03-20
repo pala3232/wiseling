@@ -155,7 +155,22 @@ resource "aws_eks_node_group" "bootstrap" {
   tags = { Name = "${var.app_name}-bootstrap-node${var.name_suffix}", Project = var.app_name }
 }
 
-# Admin access entry
+# Access entries
+
+resource "aws_eks_access_entry" "github_actions" {
+  count         = var.github_actions_role_arn != "" ? 1 : 0
+  cluster_name  = aws_eks_cluster.main.name
+  principal_arn = var.github_actions_role_arn
+  type          = "STANDARD"
+}
+
+resource "aws_eks_access_policy_association" "github_actions" {
+  count         = var.github_actions_role_arn != "" ? 1 : 0
+  cluster_name  = aws_eks_cluster.main.name
+  principal_arn = var.github_actions_role_arn
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+  access_scope  { type = "cluster" }
+}
 
 resource "aws_eks_access_entry" "admin" {
   count         = var.admin_iam_arn != "" ? 1 : 0

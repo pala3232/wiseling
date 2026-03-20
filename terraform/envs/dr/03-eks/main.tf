@@ -42,8 +42,9 @@ module "eks" {
   private_subnet_2_id = data.terraform_remote_state.network_dr.outputs.private_subnet_2_id
   eks_cluster_sg_id   = data.terraform_remote_state.network_dr.outputs.eks_cluster_sg_id
   eks_nodes_sg_id     = data.terraform_remote_state.network_dr.outputs.eks_nodes_sg_id
-  admin_iam_arn       = var.admin_iam_arn
-  aws_region          = "ap-southeast-1"
+  admin_iam_arn           = var.admin_iam_arn
+  github_actions_role_arn = "arn:aws:iam::359707702022:role/wiseling-github-actions"
+  aws_region              = "ap-southeast-1"
   name_suffix         = "-sgp"
 }
 

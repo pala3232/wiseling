@@ -1,4 +1,4 @@
-name: Run Testing Experiments+Locust
+name: Testing | Run Testing Experiments+Locust
 
 
 on:

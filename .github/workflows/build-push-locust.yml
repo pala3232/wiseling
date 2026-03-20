@@ -1,4 +1,4 @@
-name: Build and Push Locust
+name: Testing | Build and Push Locust Image
 
 on:
   push:
