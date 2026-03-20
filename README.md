@@ -129,7 +129,7 @@ terraform/
 
 - Route53 **active-passive failover** — health checks on both ALBs, traffic auto-switches to DR when primary fails
 - DR cluster runs at minimum capacity (1 replica per service, `t3.large` nodes) — scales up on failover
-- DR database is an RDS read replica — **reads work, writes fail** until the `Failover to Singapore` workflow promotes it
+- DR database is an RDS read replica — **reads work, writes fail** until the `09 | Failover to DR` workflow promotes it
 - DynamoDB Global Table replicates outbox events to ap-southeast-1 in real time
 - CloudWatch alarm + SNS email fires when primary health check fails
 
@@ -163,36 +163,46 @@ terraform apply -var="github_repo=your-github-user/wiseling"
 ```
 Copy the `github_actions_role_arn` output into the `AWS_ROLE_ARN` GitHub secret.
 
-**2. Deploy infrastructure** via the **Deploy Terraform Infrastructure** workflow (leave `target` blank to run all stages).
+**2. Build and push images** via **02 | Build Push Deploy** — run once per service with an initial tag (e.g. `1.0.0`).
 
-**3. Deploy primary cluster** via the **Deploy Kubernetes Cluster** workflow — select `primary`.
+**3. Deploy infrastructure** via **01 | Deploy Infrastructure** (leave `target` blank to run all stages).
 
-**4. Deploy DR cluster** via the **Deploy Kubernetes Cluster** workflow — select `dr`.
+**4. Deploy primary cluster** via **03 | Deploy Kubernetes Cluster** — select `primary`.
 
-**5. Deploy global layer:**
-- First run: **Deploy Terraform Infrastructure** → target `global`, protocol `HTTP`
-- Copy the Route53 nameservers from the output and set them as custom nameservers in your DNS provider
-- Wait for cert validation, then re-run with protocol `HTTPS`
+**5. Deploy DR cluster** via **03 | Deploy Kubernetes Cluster** — select `dr`.
 
-**6. Deploy observability** via the **Deploy Observability Stack** workflow.
+**6. Deploy global layer:**
+- Run **01 | Deploy Infrastructure** → target `global`, protocol `HTTP`
+- Copy the Route53 nameservers from the workflow logs and set them as custom nameservers in Cloudflare for your domain
+- Wait for cert validation (~5-15 min). Check with:
+  ```bash
+  aws acm describe-certificate --certificate-arn <arn> --region ap-southeast-2 --query 'Certificate.Status'
+  ```
+- Once `ISSUED`, re-run **01 | Deploy Infrastructure** → target `global`, protocol `HTTPS`
+- Run **04 | Configure HTTPS** → paste the primary and DR cert ARNs from the workflow logs
+
+**7. Deploy observability** via **05 | Deploy Observability**.
 
 ### Destroy Infrastructure
 
-Trigger the **Destroy All Infrastructure** workflow. `00-bootstrap` (ECR + OIDC role) is intentionally excluded and survives destroy.
+Trigger **10 | Destroy Infrastructure**. `00-bootstrap` (ECR + OIDC role) is intentionally excluded and survives destroy.
 
 ---
 
 ## CI/CD Workflows
 
-| Workflow | Trigger | Description |
-|---|---|---|
-| `build-push-deploy.yml` | Manual | Build, push to ECR, and deploy to both clusters |
-| `deploy-cluster.yml` | Manual | Bootstrap K8s on primary or DR cluster |
-| `deploy-infra.yml` | Manual | Apply one or all Terraform layers |
-| `destroy-all.yml` | Manual (type `DESTROY`) | Destroy all infrastructure except 00-bootstrap |
-| `deploy-observability.yml` | Manual | Install Prometheus + Grafana on primary |
-| `failover.yml` | Manual (type `FAILOVER`) | Promote DR replica + restart pods |
-| `smoke-tests.yml` | Manual | End-to-end tests against live ALB |
+| Workflow | Description |
+|---|---|
+| `01 \| Deploy Infrastructure` | Apply one or all Terraform layers |
+| `02 \| Build Push Deploy` | Build, push to ECR, and deploy a service to both clusters |
+| `03 \| Deploy Kubernetes Cluster` | Bootstrap K8s on primary or DR cluster |
+| `04 \| Configure HTTPS` | Patch ALB ingress with ACM cert ARNs on both clusters |
+| `05 \| Deploy Observability` | Install Prometheus + Grafana on primary |
+| `06 \| Smoke Tests` | End-to-end tests against live ALB |
+| `07 \| Load Tests` | Run Locust + chaos experiments |
+| `08 \| Build Locust` | Build and push Locust image to ECR |
+| `09 \| Failover to DR` | Promote DR replica + restart pods (type `FAILOVER` to confirm) |
+| `10 \| Destroy Infrastructure` | Destroy all infrastructure except 00-bootstrap (type `DESTROY` to confirm) |
 
 ---
 
