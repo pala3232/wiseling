@@ -151,7 +151,6 @@ else
 
   echo ""
   echo "  EC2/RDS prices from AWS Pricing API (on-demand, Linux)."
-  echo "  NAT Gateway and ALB base rates are hardcoded — see nat_gateway_rate() to update."
-  echo "  Excludes: data transfer, SQS/DynamoDB requests, EBS storage, Karpenter nodes."
-  echo "  To include Karpenter nodes, uncomment the relevant lines in infra-manifest.conf."
+  echo "  All other rates are hardcoded — see rate functions in the script if your regions differ."
+  echo "  Excludes: data transfer, SQS/DynamoDB requests, EBS storage, ECR storage."
 fi
