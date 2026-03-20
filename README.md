@@ -116,6 +116,10 @@ terraform/
 | S3 State Backend | `wiseling-terraform-state-pala3105` |
 | ECR | `359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/*` |
 
+### FX Rates
+
+By default, conversion-service uses static hardcoded rates (`RATES_PROVIDER: static` in the configmap). To switch to live rates, set `RATES_PROVIDER: openexchangerates` and add your API key from [openexchangerates.org](https://openexchangerates.org) as `OPEN_EXCHANGE_RATES_APP_ID` in Secrets Manager, then pull it via External Secrets into the pod.
+
 ### Kubernetes
 
 - **Namespace:** `wiseling`
@@ -186,6 +190,24 @@ Copy the `github_actions_role_arn` output into the `AWS_ROLE_ARN` GitHub secret.
 ### Destroy Infrastructure
 
 Trigger **10 | Destroy Infrastructure**. `00-bootstrap` (ECR + OIDC role) is intentionally excluded and survives destroy.
+
+### Failover Test
+
+Measures end-to-end failover time from primary failure to DR serving traffic, then restores primary.
+
+```bash
+chmod +x scripts/failover-test/failover-test.sh
+./scripts/failover-test/failover-test.sh --domain <your-domain>
+```
+
+**Prerequisites:** `aws` CLI, `kubectl` (configured for primary cluster), `nslookup`, `curl`
+
+What it does:
+1. Scales down all primary deployments to 0 (triggers Route53 health check failure)
+2. Polls until Route53 health check reports unhealthy
+3. Polls until DNS resolves to a different IP (DR ALB)
+4. Polls until DR endpoint returns HTTP 200 — reports total failover time
+5. Prompts to restore — scales primary back to 2 replicas and reports recovery time
 
 ---
 
