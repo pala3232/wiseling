@@ -98,30 +98,6 @@ resource "aws_dynamodb_table" "outbox" {
   }
 }
 
-resource "aws_ecr_repository" "services" {
-  for_each = toset([
-    "auth-service",
-    "wallet-service",
-    "conversion-service",
-    "withdrawal-service",
-    "frontend",
-    "locust"
-  ])
-
-  name                 = "${var.app_name}/${each.key}"
-  image_tag_mutability = "IMMUTABLE"
-  force_delete         = true
-
-  image_scanning_configuration {
-    scan_on_push = false
-  }
-
-  tags = { project = var.app_name }
-
-  lifecycle {
-    prevent_destroy = true
-  }
-}
 
 resource "aws_secretsmanager_secret" "jwt" {
   name                    = "${var.app_name}-jwt-secret-key"

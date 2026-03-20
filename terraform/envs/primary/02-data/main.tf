@@ -37,4 +37,3 @@ output "rds_identifier"        { value = module.data.rds_identifier }
 output "conversions_queue_url" { value = module.data.conversions_queue_url }
 output "withdrawals_queue_url" { value = module.data.withdrawals_queue_url }
 output "dynamodb_table_name"   { value = module.data.dynamodb_table_name }
-output "ecr_repo_urls"         { value = module.data.ecr_repo_urls }

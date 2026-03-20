@@ -212,15 +212,7 @@ jobs:
           run_destroy "04-iam"
           run_destroy "03-eks"
 
-          # Remove ECR repos from state before destroying data — prevent_destroy
-          # means Terraform would refuse to delete them; we just abandon the state.
-          cd "$GITHUB_WORKSPACE/terraform/envs/primary/02-data"
-          terraform init -reconfigure
-          for repo in auth-service wallet-service conversion-service withdrawal-service frontend locust; do
-            terraform state rm "module.data.aws_ecr_repository.services[\"$repo\"]" 2>/dev/null || true
-          done
-          terraform destroy -auto-approve
-          cd "$GITHUB_WORKSPACE"
+          run_destroy "02-data"
 
           run_destroy "01-network"
 

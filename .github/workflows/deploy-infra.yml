@@ -101,12 +101,6 @@ jobs:
         run: |
           cd terraform/envs/primary/02-data
           terraform init -reconfigure
-          # Import existing ECR repos to avoid destroy/recreate on first run
-          if [ "${{ github.event.inputs.action }}" = "apply" ]; then
-            for repo in auth-service wallet-service conversion-service withdrawal-service frontend locust; do
-              terraform import "module.data.aws_ecr_repository.services[\"$repo\"]" "wiseling/$repo" 2>/dev/null || true
-            done
-          fi
           terraform ${{ github.event.inputs.action }} -auto-approve
 
   eks-primary:
