@@ -125,17 +125,17 @@ sleep 10
 log "Applying K8s manifests..."
 kubectl apply -f kubernetes-manifests/secrets/
 kubectl apply -f kubernetes-manifests/configmap/configmap.yaml
-kubectl apply -f kubernetes-manifests/deployments/blue-deployments/auth-service/
-kubectl apply -f kubernetes-manifests/deployments/blue-deployments/conversion-service/
-kubectl apply -f kubernetes-manifests/deployments/blue-deployments/wallet-service/
-kubectl apply -f kubernetes-manifests/deployments/blue-deployments/withdrawal-service/
-kubectl apply -f kubernetes-manifests/deployments/blue-deployments/workers/
-kubectl apply -f kubernetes-manifests/deployments/blue-deployments/redis-service/
+kubectl apply -f kubernetes-manifests/deployments/auth-service/
+kubectl apply -f kubernetes-manifests/deployments/conversion-service/
+kubectl apply -f kubernetes-manifests/deployments/wallet-service/
+kubectl apply -f kubernetes-manifests/deployments/withdrawal-service/
+kubectl apply -f kubernetes-manifests/deployments/workers/
+kubectl apply -f kubernetes-manifests/deployments/redis-service/
 kubectl apply -f kubernetes-manifests/ingress.yaml
-kubectl apply -f kubernetes-manifests/deployments/blue-deployments/frontend-service/
+kubectl apply -f kubernetes-manifests/deployments/frontend-service/
 kubectl apply -f kubernetes-manifests/services/pod-services.yaml
 kubectl apply -f kubernetes-manifests/network-policies/
-kubectl apply -f kubernetes-manifests/deployments/blue-deployments/hpa.yaml
+kubectl apply -f kubernetes-manifests/deployments/hpa.yaml
 kubectl apply -f kubernetes-manifests/pdbs/pdb.yaml
 
 log "Done!"

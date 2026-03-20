@@ -1,25 +1,25 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: conversion-service-deployment
+  name: auth-service-deployment
   namespace: wiseling
   labels:
-    app: conversion-service
+    app: auth-service
     deployment: green
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: conversion-service
+      app: auth-service
       deployment: green
   template:
     metadata:
       annotations:
         prometheus.io/scrape: "true"
-        prometheus.io/port: "8002"
+        prometheus.io/port: "8000"
         prometheus.io/path: "/metrics"
       labels:
-        app: conversion-service
+        app: auth-service
         deployment: green
     spec:
       serviceAccountName: wiseling-sa
@@ -29,7 +29,7 @@ spec:
           whenUnsatisfiable: ScheduleAnyway
           labelSelector:
             matchLabels:
-              app: conversion-service
+              app: auth-service
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -37,36 +37,41 @@ spec:
             podAffinityTerm:
               labelSelector:
                 matchLabels:
-                  app: conversion-service
+                  app:  auth-service
               topologyKey: kubernetes.io/hostname
       containers:
-      - name: conversion-service
-        image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/conversion-service:1.2.0
+      - name: auth-service
+        image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/auth-service:1.2.0
         ports:
-        - containerPort: 8002
+        - containerPort: 8000
         readinessProbe:
           httpGet:
-            path: /metrics
-            port: 8002
+            path: /health
+            port: 8000
           initialDelaySeconds: 10
           periodSeconds: 10
           failureThreshold: 6
           timeoutSeconds: 10
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
         envFrom:
         - configMapRef:
             name: wiseling-config
         - secretRef:
             name: jwt-secret
-        env:
-        - name: DATABASE_URL
-          valueFrom:
-            secretKeyRef:
-              name: db-url-conversion
-              key: DATABASE_URL
+        - secretRef:
+            name: db-url-auth
         resources:
           limits:
             memory: "256Mi"
-            cpu: "500m"
+            cpu: "1000m"
           requests:
             memory: "128Mi"
-            cpu: "50m"
+            cpu: "100m"
