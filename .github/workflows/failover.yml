@@ -12,14 +12,16 @@ jobs:
   failover:
     runs-on: ubuntu-latest
     if: ${{ github.event.inputs.confirm_failover == 'FAILOVER' }}
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ap-southeast-1
 
       # ── Step 1: Promote read replica to standalone primary ─────────────────
@@ -67,16 +69,22 @@ jobs:
       # ── Step 4: Sync JWT secret from primary to DR ────────────────────────
       - name: Sync JWT secret to Singapore
         run: |
+          # Best-effort — primary may be unreachable during failover.
+          # wiseling-jwt-secret-key-sgp was already seeded by deploy-dr.sh.
           JWT_VALUE=$(aws secretsmanager get-secret-value \
             --secret-id wiseling-jwt-secret-key \
             --region ap-southeast-2 \
             --query SecretString \
-            --output text)
-          aws secretsmanager put-secret-value \
-            --secret-id wiseling-jwt-secret-key-sgp \
-            --secret-string "$JWT_VALUE" \
-            --region ap-southeast-1
-          echo "JWT secret synced."
+            --output text 2>/dev/null) || true
+          if [ -n "$JWT_VALUE" ]; then
+            aws secretsmanager put-secret-value \
+              --secret-id wiseling-jwt-secret-key-sgp \
+              --secret-string "$JWT_VALUE" \
+              --region ap-southeast-1
+            echo "JWT secret synced from primary."
+          else
+            echo "Primary unreachable — using existing JWT secret in ap-southeast-1."
+          fi
 
       # ── Step 5: Configure kubectl for Singapore cluster ───────────────────
       - name: Configure kubectl for DR cluster

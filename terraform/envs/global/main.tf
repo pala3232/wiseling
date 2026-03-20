@@ -159,3 +159,40 @@ resource "aws_acm_certificate_validation" "dr" {
   certificate_arn         = aws_acm_certificate.dr.arn
   validation_record_fqdns = [for r in aws_route53_record.cert_validation : r.fqdn]
 }
+
+# ── Alerting ──────────────────────────────────────────────────────────────────
+# Route53 switches traffic automatically when health checks fail.
+# This alarm notifies you so you can decide whether to promote the RDS replica.
+# CloudWatch Route53 health check metrics are only available in us-east-1.
+
+resource "aws_sns_topic" "failover_alerts" {
+  provider = aws.global
+  name     = "wiseling-failover-alerts"
+  tags     = { Project = var.app_name }
+}
+
+resource "aws_sns_topic_subscription" "failover_email" {
+  provider  = aws.global
+  topic_arn = aws_sns_topic.failover_alerts.arn
+  protocol  = "email"
+  endpoint  = var.alert_email
+}
+
+resource "aws_cloudwatch_metric_alarm" "primary_unhealthy" {
+  provider            = aws.global
+  alarm_name          = "wiseling-primary-region-unhealthy"
+  alarm_description   = "Primary region health check is failing. Route53 has already switched traffic to DR. Evaluate whether to promote the RDS replica via the failover workflow."
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "HealthCheckStatus"
+  namespace           = "AWS/Route53"
+  period              = 60
+  statistic           = "Minimum"
+  threshold           = 1
+  dimensions = {
+    HealthCheckId = aws_route53_health_check.primary.id
+  }
+  alarm_actions = [aws_sns_topic.failover_alerts.arn]
+  ok_actions    = [aws_sns_topic.failover_alerts.arn]
+  tags          = { Project = var.app_name }
+}

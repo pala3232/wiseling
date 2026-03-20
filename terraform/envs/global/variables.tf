@@ -30,6 +30,11 @@ variable "dr_alb_zone_id" {
   default     = "Z1LMS91P8CMLE5"
 }
 
+variable "alert_email" {
+  description = "Email address to notify when the primary region health check fails"
+  type        = string
+}
+
 variable "health_check_protocol" {
   description = "Use HTTP on first apply (before NS delegation to Cloudflare). Switch to HTTPS after cert validates."
   type        = string
