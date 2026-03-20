@@ -1,4 +1,4 @@
-name: Configure Ingress TLS
+name: 04 | Configure HTTPS
 
 on:
   workflow_dispatch:

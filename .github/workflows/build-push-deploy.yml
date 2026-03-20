@@ -1,4 +1,4 @@
-name: Build, Push and Deploy Services
+name: 02 | Build Push Deploy
 
 on:
   workflow_dispatch:

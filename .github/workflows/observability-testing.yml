@@ -1,4 +1,4 @@
-name: Testing | Run Testing Experiments+Locust
+name: 07 | Load Tests
 
 
 on:

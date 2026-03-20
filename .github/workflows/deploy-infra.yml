@@ -1,4 +1,4 @@
-name: Deploy Terraform Infrastructure
+name: 01 | Deploy Infrastructure
 
 on:
   workflow_dispatch:

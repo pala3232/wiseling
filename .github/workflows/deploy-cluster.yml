@@ -1,4 +1,4 @@
-name: Deploy Kubernetes Cluster
+name: 03 | Deploy Kubernetes Cluster
 
 on:
   workflow_dispatch:
