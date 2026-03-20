@@ -1,29 +1,11 @@
 #!/usr/bin/env bash
-# cost-report.sh — AWS cost summary for Wiseling
-# Usage: ./cost-report.sh [--months N] [--days N]
-#   --months N   How many past months to show in the monthly view (default: 6)
-#   --days N     How many past days to show in the daily view (default: 30)
-# Requires: aws CLI configured, Cost Explorer enabled (~$0.01/request)
-# Section [5] also requires: jq  (winget install jqlang.jq  /  brew install jq  /  apt install jq)
+# cost-report.sh — AWS cost projection for Wiseling (manifest-based)
+# Usage: ./cost-report.sh
+# Requires: jq  (winget install jqlang.jq  /  brew install jq  /  apt install jq)
 
 set -euo pipefail
 
-MONTHS=6
-DAYS=30
-
-while [[ $# -gt 0 ]]; do
-  case $1 in
-    --months) MONTHS="$2"; shift 2 ;;
-    --days)   DAYS="$2";   shift 2 ;;
-    *) echo "Unknown option: $1"; exit 1 ;;
-  esac
-done
-
 TODAY=$(date +%Y-%m-%d)
-MTD_START=$(date +%Y-%m-01)
-MONTHLY_START=$(date -d "-${MONTHS} months" +%Y-%m-01 2>/dev/null || date -v-"${MONTHS}"m -v1d +%Y-%m-%d)
-DAILY_START=$(date -d "-${DAYS} days" +%Y-%m-%d 2>/dev/null || date -v-"${DAYS}"d +%Y-%m-%d)
-NEXT_MONTH=$(date -d "+1 month" +%Y-%m-01 2>/dev/null || date -v+1m -v1d +%Y-%m-%d)
 
 echo "============================================"
 echo "  Wiseling AWS Cost Report"
@@ -31,69 +13,13 @@ echo "  Run at : ${TODAY}"
 echo "============================================"
 echo ""
 
-# ── [1] Monthly costs — one row per calendar month ───────────────────────────
-echo ">>> [1] Monthly costs (last ${MONTHS} months)"
-aws ce get-cost-and-usage \
-  --time-period Start="${MONTHLY_START}",End="${TODAY}" \
-  --granularity MONTHLY \
-  --metrics "UnblendedCost" \
-  --query 'ResultsByTime[*].{Month:TimePeriod.Start,Total_USD:Total.UnblendedCost.Amount,Estimated:Estimated}' \
-  --output table
-
-echo ""
-
-# ── [2] Monthly costs broken down by service ──────────────────────────────────
-echo ">>> [2] Monthly cost by service (last ${MONTHS} months, most recent month)"
-aws ce get-cost-and-usage \
-  --time-period Start="${MTD_START}",End="${TODAY}" \
-  --granularity MONTHLY \
-  --metrics "UnblendedCost" \
-  --group-by Type=DIMENSION,Key=SERVICE \
-  --query 'ResultsByTime[0].Groups[?Metrics.UnblendedCost.Amount!=`"0"`].{Service:Keys[0],Cost_USD:Metrics.UnblendedCost.Amount}' \
-  --output table
-
-echo ""
-
-# ── [3] Daily costs — one row per day ─────────────────────────────────────────
-echo ">>> [3] Daily costs (last ${DAYS} days)"
-aws ce get-cost-and-usage \
-  --time-period Start="${DAILY_START}",End="${TODAY}" \
-  --granularity DAILY \
-  --metrics "UnblendedCost" \
-  --query 'ResultsByTime[*].{Date:TimePeriod.Start,Total_USD:Total.UnblendedCost.Amount,Estimated:Estimated}' \
-  --output table
-
-echo ""
-
-# ── [4] Daily costs broken down by service (current month) ───────────────────
-echo ">>> [4] Daily cost by service (current month: ${MTD_START} → ${TODAY})"
-aws ce get-cost-and-usage \
-  --time-period Start="${MTD_START}",End="${TODAY}" \
-  --granularity DAILY \
-  --metrics "UnblendedCost" \
-  --group-by Type=DIMENSION,Key=SERVICE \
-  --output text \
-  --query 'ResultsByTime[*].[TimePeriod.Start, Groups[*].[Keys[0], Metrics.UnblendedCost.Amount][]]' | \
-awk '
-BEGIN { FS="\t" }
-{
-  date = $1
-  for (i = 2; i <= NF; i += 2) {
-    svc  = $i
-    cost = $(i+1) + 0
-    if (cost > 0) printf "  %-12s  %-45s  $%.4f\n", date, svc, cost
-  }
-}'
-
-echo ""
-
-# ── [5] Cost projection — from infra manifest (no deployment needed) ──────────
+# ── Cost projection — from infra manifest (no deployment needed) ──────────
 # Reads scripts/cost/infra-manifest.conf, prices each resource via the AWS
 # Pricing API, and projects to 24h and 30 days.
 # Edit the manifest to match your infra. No resources need to be running.
 MANIFEST_FILE="$(dirname "$0")/infra-manifest.conf"
 
-echo ">>> [5] Cost projection — from infra manifest"
+echo ">>> Cost projection — from infra manifest"
 echo "    Manifest: ${MANIFEST_FILE}"
 echo ""
 
@@ -153,6 +79,16 @@ else
   }
 
   alb_rate() { echo "0.008"; }  # base hourly rate, excludes LCU
+  route53_zone_rate() { echo "0.000694"; }  # $0.50/month flat per hosted zone
+  route53_hc_rate() {
+    case "$1" in
+      fast) echo "0.001389" ;;  # $1.00/month (10s interval)
+      *)    echo "0.000694" ;;  # $0.50/month (30s interval)
+    esac
+  }
+  secretsmanager_secret_rate() { echo "0.000556"; }  # $0.40/month per secret
+  cloudwatch_alarm_rate()       { echo "0.000139"; }  # $0.10/month per alarm
+  dynamodb_global_table_rate()  { echo "0.001389"; }  # ~$1.00/month low estimate (PAY_PER_REQUEST + replica writes)
 
   TOTAL_HOURLY=0
 
@@ -189,8 +125,13 @@ else
         eks_cluster) price_cache[$cache_key]="0.10" ;;
         ec2)         price_cache[$cache_key]=$(get_ec2_price "${spec}" "${region}") ;;
         rds)         price_cache[$cache_key]=$(get_rds_price "${spec}" "${region}") ;;
-        nat_gateway) price_cache[$cache_key]=$(nat_gateway_rate "${region}") ;;
-        alb)         price_cache[$cache_key]=$(alb_rate) ;;
+        nat_gateway)   price_cache[$cache_key]=$(nat_gateway_rate "${region}") ;;
+        alb)           price_cache[$cache_key]=$(alb_rate) ;;
+        route53_zone)          price_cache[$cache_key]=$(route53_zone_rate) ;;
+        route53_hc)            price_cache[$cache_key]=$(route53_hc_rate "${spec}") ;;
+        secretsmanager_secret) price_cache[$cache_key]=$(secretsmanager_secret_rate) ;;
+        cloudwatch_alarm)      price_cache[$cache_key]=$(cloudwatch_alarm_rate) ;;
+        dynamodb_global_table) price_cache[$cache_key]=$(dynamodb_global_table_rate) ;;
         *)           price_cache[$cache_key]="0" ;;
       esac
     fi
@@ -214,8 +155,3 @@ else
   echo "  Excludes: data transfer, SQS/DynamoDB requests, EBS storage, Karpenter nodes."
   echo "  To include Karpenter nodes, uncomment the relevant lines in infra-manifest.conf."
 fi
-
-echo ""
-echo "============================================"
-echo "  Cost Explorer API charges ~\$0.01/request."
-echo "============================================"

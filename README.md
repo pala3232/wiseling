@@ -192,6 +192,23 @@ Copy the `github_actions_role_arn` output into the `AWS_ROLE_ARN` GitHub secret.
 
 Trigger **10 | Destroy Infrastructure**. `00-bootstrap` (ECR + OIDC role) is intentionally excluded and survives destroy.
 
+### Cost Report
+
+Projects infrastructure costs from the manifest — no AWS credentials or running infrastructure needed for the estimate.
+
+```bash
+chmod +x scripts/cost/cost-report.sh
+./scripts/cost/cost-report.sh
+```
+
+**Prerequisites:** `jq` (`winget install jqlang.jq` / `brew install jq` / `sudo apt install jq`)
+
+Reads [`scripts/cost/infra-manifest.conf`](scripts/cost/infra-manifest.conf), prices each resource, and outputs estimated cost per hour, per 24h, and per 30 days. Update the manifest when infrastructure changes and re-run.
+
+Supported resource types in the manifest: `eks_cluster`, `ec2`, `rds`, `nat_gateway`, `alb`, `route53_zone`, `route53_hc`, `secretsmanager_secret`, `cloudwatch_alarm`, `dynamodb_global_table`
+
+EC2 and RDS prices are fetched live from the AWS Pricing API (`pricing:GetProducts` permission required). All other rates are hardcoded — see the rate functions in the script if your regions differ.
+
 ### Failover Test
 
 Measures end-to-end failover time from primary failure to DR serving traffic, then restores primary.
