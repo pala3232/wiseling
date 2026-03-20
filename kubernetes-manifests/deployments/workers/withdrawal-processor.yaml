@@ -33,7 +33,7 @@ spec:
       containers:
       - name: withdrawal-processor
         image: 359707702022.dkr.ecr.ap-southeast-2.amazonaws.com/wiseling/withdrawal-service:1.2.0
-        command: ["python", "-m", "app.services.processor"]
+        command: ["python", "-m", "app.services.outbox_poller"]
         envFrom:
           - configMapRef:
               name: wiseling-config
