@@ -94,6 +94,9 @@ jobs:
             --region ap-southeast-1
 
       # ── Step 6: Restart pods to pick up new DB secret ─────────────────────
+      # Note: restarting wallet-service also triggers the DynamoDB reconciler
+      # on pod startup, which replays any transactions missing from the promoted
+      # replica due to replication lag — achieving RPO ~0.
       - name: Restart all deployments in wiseling namespace
         run: |
           kubectl rollout restart deployment -n wiseling
