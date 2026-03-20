@@ -20,10 +20,11 @@ Production-grade multi-currency wallet API with FX conversions and P2P transfers
 | `withdrawal-service` | 8003 | P2P transfers |
 | `wallet-consumer` | — | SQS consumer, debits/credits/transfers |
 | `conversion-outbox-poller` | — | Publishes conversion events to SQS |
-| `withdrawal-outbox-poller` | — | Publishes transfer events to SQS |
+| `withdrawal-processor` | — | Publishes transfer events to SQS |
 | `conversion-dynamo-cleaner` | — | Cleans DynamoDB buffer after RDS recovery |
 | `withdrawal-dynamo-cleaner` | — | Cleans DynamoDB buffer after RDS recovery |
 | `wallet-reconciler` | — | Replays DynamoDB buffer on startup after failover |
+| `redis` | 6379 | In-memory cache (master + replica) used by wallet-service and wallet-consumer |
 | `frontend` | 80 | Single-page app (nginx) |
 
 ### Event Flow — P2P Transfer

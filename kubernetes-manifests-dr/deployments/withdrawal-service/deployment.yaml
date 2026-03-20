@@ -5,18 +5,15 @@ metadata:
   namespace: wiseling
   labels:
     app: withdrawal-service
-    deployment: green
 spec:
   replicas: 2
   selector:
     matchLabels:
       app: withdrawal-service
-      deployment: green
   template:
     metadata:
       labels:
         app: withdrawal-service
-        deployment: green
     spec:
       serviceAccountName: wiseling-sa
       topologySpreadConstraints:

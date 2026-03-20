@@ -5,18 +5,15 @@ metadata:
   namespace: wiseling
   labels:
     app: auth-service
-    deployment: green
 spec:
   replicas: 2
   selector:
     matchLabels:
       app: auth-service
-      deployment: green
   template:
     metadata:
       labels:
         app: auth-service
-        deployment: green
     spec:
       serviceAccountName: wiseling-sa
       topologySpreadConstraints:

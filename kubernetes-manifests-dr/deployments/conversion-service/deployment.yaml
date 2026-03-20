@@ -5,18 +5,15 @@ metadata:
   namespace: wiseling
   labels:
     app: conversion-service
-    deployment: green
 spec:
   replicas: 2
   selector:
     matchLabels:
       app: conversion-service
-      deployment: green
   template:
     metadata:
       labels:
         app: conversion-service
-        deployment: green
     spec:
       serviceAccountName: wiseling-sa
       topologySpreadConstraints:
