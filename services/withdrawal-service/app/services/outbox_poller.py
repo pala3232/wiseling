@@ -25,11 +25,15 @@ def _sqs():
 
 async def poll_once():
     async with AsyncSessionLocal() as db:
+        # FOR UPDATE SKIP LOCKED: each pod atomically claims a batch of rows.
+        # Concurrent pollers skip locked rows and pick different ones,
+        # preventing duplicate publishes without a distributed lock.
         result = await db.execute(
             select(OutboxEvent)
             .where(OutboxEvent.status == "PENDING")
             .order_by(OutboxEvent.created_at.asc())
             .limit(100)
+            .with_for_update(skip_locked=True)
         )
         events = result.scalars().all()
 

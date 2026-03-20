@@ -8,12 +8,10 @@ spec:
   selector:
     matchLabels:
       app: conversion-dynamo-cleaner
-      deployment: green
   template:
     metadata:
       labels:
         app: conversion-dynamo-cleaner
-        deployment: green
     spec:
       serviceAccountName: wiseling-sa
       topologySpreadConstraints:

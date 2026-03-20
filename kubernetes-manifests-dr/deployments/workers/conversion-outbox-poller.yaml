@@ -4,16 +4,14 @@ metadata:
   name: conversion-outbox-poller
   namespace: wiseling
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: conversion-outbox-poller
-      deployment: green
   template:
     metadata:
       labels:
         app: conversion-outbox-poller
-        deployment: green
     spec:
       serviceAccountName: wiseling-sa
       topologySpreadConstraints:
