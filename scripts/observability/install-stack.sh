@@ -20,7 +20,7 @@ log "Installing kube-prometheus-stack..."
 helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
   --namespace monitoring \
   --create-namespace \
-  --values "$SCRIPT_DIR/values.yaml" \
+  --values "$SCRIPT_DIR/values-alerts.yaml" \
   --set grafana.env.GF_SERVER_ROOT_URL="http://%(domain)s/grafana" \
   --set grafana.env.GF_SERVER_SERVE_FROM_SUB_PATH="true" \
   --set grafana.adminPassword="pala3105" \
