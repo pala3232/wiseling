@@ -1,0 +1,43 @@
+name: Configure Ingress TLS
+
+on:
+  workflow_dispatch:
+    inputs:
+      primary_cert_arn:
+        description: 'ACM cert ARN for primary cluster (ap-southeast-2)'
+        required: true
+      dr_cert_arn:
+        description: 'ACM cert ARN for DR cluster (ap-southeast-1)'
+        required: true
+
+jobs:
+  configure:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ap-southeast-2
+
+      - name: Patch primary ingress
+        run: |
+          aws eks update-kubeconfig --region ap-southeast-2 --name wiseling-eks-cluster
+          kubectl annotate ingress wiseling-ingress -n wiseling --overwrite \
+            alb.ingress.kubernetes.io/certificate-arn=${{ github.event.inputs.primary_cert_arn }} \
+            alb.ingress.kubernetes.io/listen-ports='[{"HTTP": 80}, {"HTTPS": 443}]' \
+            alb.ingress.kubernetes.io/ssl-redirect="443"
+          echo "Primary ingress patched."
+
+      - name: Patch DR ingress
+        run: |
+          aws eks update-kubeconfig --region ap-southeast-1 --name wiseling-eks-cluster-sgp
+          kubectl annotate ingress wiseling-ingress -n wiseling --overwrite \
+            alb.ingress.kubernetes.io/certificate-arn=${{ github.event.inputs.dr_cert_arn }} \
+            alb.ingress.kubernetes.io/listen-ports='[{"HTTP": 80}, {"HTTPS": 443}]' \
+            alb.ingress.kubernetes.io/ssl-redirect="443"
+          echo "DR ingress patched."
