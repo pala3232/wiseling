@@ -8,7 +8,7 @@ Production-grade multi-currency wallet API with FX conversions and P2P transfers
 
 ## Architecture
 
-![Wiseling Architecture](images/wiseling-infra-v2.drawio.png)
+![Wiseling Architecture](images/wiseling-infra.png)
 
 ### Services
 
@@ -27,7 +27,11 @@ Production-grade multi-currency wallet API with FX conversions and P2P transfers
 | `redis` | 6379 | In-memory cache (master + replica) used by wallet-service and wallet-consumer |
 | `frontend` | 80 | Single-page app (nginx) |
 
-### Event Flow — P2P Transfer
+### Event Flow
+
+![Wiseling Event Flow](images/wiseling-eventflow.png)
+
+#### P2P Transfer
 
 ```
 POST /api/v1/withdrawals/transfer
@@ -48,7 +52,7 @@ wallet-consumer
   └── PATCH /internal/{id}/complete → withdrawal-service
 ```
 
-### Event Flow — FX Conversion
+#### FX Conversion
 
 ```
 POST /api/v1/conversions
