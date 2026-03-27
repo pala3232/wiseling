@@ -136,11 +136,15 @@ By default, conversion-service uses static hardcoded rates (`RATES_PROVIDER: sta
 
 ### Disaster Recovery
 
+![DR Test](images/dr-test.png)
+
 - Route53 **active-passive failover** — health checks on both ALBs, traffic auto-switches to DR when primary fails
 - DR cluster runs at minimum capacity (1 replica per service, `t3.large` nodes) — scales up on failover
 - DR database is an RDS read replica — **reads work, writes fail** until the `09 | Failover to DR` workflow promotes it
 - DynamoDB Global Table replicates outbox events to ap-southeast-1 in real time
 - CloudWatch alarm + SNS email fires when primary health check fails
+
+![Alerts](images/Alerts.png)
 
 ---
 
@@ -212,6 +216,8 @@ Reads [`scripts/cost/infra-manifest.conf`](scripts/cost/infra-manifest.conf), pr
 Supported resource types in the manifest: `eks_cluster`, `ec2`, `rds`, `nat_gateway`, `alb`, `route53_zone`, `route53_hc`, `secretsmanager_secret`, `cloudwatch_alarm`, `dynamodb_global_table`
 
 EC2 and RDS prices are fetched live from the AWS Pricing API (`pricing:GetProducts` permission required). All other rates are hardcoded — see the rate functions in the script if your regions differ.
+
+![Cost Report](images/cost-report.png)
 
 ### Failover Test
 
